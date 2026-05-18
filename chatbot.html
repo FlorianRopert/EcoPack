@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chatbot EcoPack</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">🌱</div>
+        <div>
+          <h1>EcoPack IA</h1>
+          <p>Assistant interne</p>
+        </div>
+      </div>
+
+      <nav class="menu">
+        <a href="#" class="active">💬 Chatbot</a>
+        <a href="#">📄 Documents</a>
+        <a href="#">🔐 Droits d'accès</a>
+        <a href="#">⚙️ Administration</a>
+      </nav>
+
+      <div class="user-box">
+        <strong>Utilisateur connecté</strong><br />
+        Jean Dupont<br />
+        Rôle : Ouvrier
+      </div>
+    </aside>
+
+    <main class="chat">
+      <header class="chat-header">
+        <div>
+          <h2>Chat interne EcoPack</h2>
+          <p>Réponses basées sur les documents autorisés</p>
+        </div>
+        <button class="logout" onclick="logout()">Déconnexion</button>
+      </header>
+
+      <section class="messages">
+        <div class="message bot">
+          <div class="bubble">
+            <strong>Assistant EcoPack</strong>
+            Bonjour, je suis l’assistant interne EcoPack. Comment puis-je vous aider ?
+          </div>
+        </div>
+
+        <div class="message user">
+          <div class="bubble">
+            <strong>Vous</strong>
+            Quelle est la procédure de sécurité pour la machine de découpe ?
+          </div>
+        </div>
+
+        <div class="message bot">
+          <div class="bubble">
+            <strong>Assistant EcoPack</strong>
+            D’après les documents autorisés pour votre rôle, vous devez porter les EPI obligatoires et vérifier l’arrêt d’urgence avant utilisation.
+          </div>
+        </div>
+      </section>
+
+      <footer class="chat-input">
+        <div class="input-row">
+          <input type="text" placeholder="Posez votre question sur EcoPack..." />
+          <button>Envoyer</button>
+        </div>
+        <p class="note">
+          Le chatbot répond uniquement avec les documents autorisés pour votre rôle.
+        </p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

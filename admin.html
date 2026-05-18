@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration - EcoPack IA</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-icon">🌱</div>
+        <div>
+          <h1>EcoPack IA</h1>
+          <p>Administration</p>
+        </div>
+      </div>
+
+      <nav class="menu">
+        <a href="chatbot.html">💬 Chatbot</a>
+        <a href="#" class="active">⚙️ Administration</a>
+        <a href="#">📄 Documents</a>
+        <a href="#">📋 Logs</a>
+      </nav>
+
+      <div class="user-box">
+        <strong>Administrateur</strong><br />
+        Admin EcoPack<br />
+        Rôle : Admin
+      </div>
+    </aside>
+
+    <main class="chat">
+      <header class="chat-header">
+        <div>
+          <h2>Gestion des utilisateurs</h2>
+          <p>Créer et gérer les comptes des employés EcoPack</p>
+        </div>
+        <button class="logout" onclick="logout()">
+  Déconnexion
+</button>
+      </header>
+
+      <section class="messages">
+        <div class="admin-card">
+          <h3>Créer un utilisateur</h3>
+
+          <form class="admin-form">
+            <div class="form-row">
+              <div>
+                <label>Nom</label>
+                <input type="text" placeholder="Dupont" />
+              </div>
+
+              <div>
+                <label>Prénom</label>
+                <input type="text" placeholder="Jean" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div>
+                <label>Email</label>
+                <input type="email" placeholder="jean.dupont@ecopack.fr" />
+              </div>
+
+              <div>
+                <label>Login</label>
+                <input type="text" placeholder="jdupont" />
+              </div>
+            </div>
+
+            <div class="form-row">
+             <div>
+  <label>Mot de passe temporaire</label>
+  <div class="password-row">
+    <input id="tempPassword" type="text" placeholder="Mot de passe" />
+    <button type="button" class="generate-btn" onclick="generatePassword()">
+      Générer
+    </button>
+  </div>
+</div>
+
+              <div>
+                <label>Rôle</label>
+                <select>
+                  <option>Ouvrier</option>
+                  <option>Chef d'équipe</option>
+                  <option>RH</option>
+                  <option>Maintenance</option>
+                  <option>Logistique</option>
+                  <option>Qualité</option>
+                  <option>Administrateur</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="button" class="admin-button">
+              Créer l'utilisateur
+            </button>
+          </form>
+        </div>
+
+        <div class="admin-card">
+          <h3>Liste des utilisateurs</h3>
+
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Login</th>
+                <th>Rôle</th>
+                <th>Statut</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td>Jean Dupont</td>
+                <td>jdupont</td>
+                <td>Ouvrier</td>
+                <td><span class="badge active">Actif</span></td>
+                <td><button class="small-btn">Modifier</button></td>
+              </tr>
+
+              <tr>
+                <td>Marie Martin</td>
+                <td>mmartin</td>
+                <td>RH</td>
+                <td><span class="badge active">Actif</span></td>
+                <td><button class="small-btn">Modifier</button></td>
+              </tr>
+
+              <tr>
+                <td>Paul Bernard</td>
+                <td>pbernard</td>
+                <td>Maintenance</td>
+                <td><span class="badge inactive">Inactif</span></td>
+                <td><button class="small-btn">Modifier</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-card">
+          <h3>Derniers logs</h3>
+
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Utilisateur</th>
+                <th>Action</th>
+                <th>Adresse IP</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td>12/05/2026 10:15</td>
+                <td>jdupont</td>
+                <td>Connexion réussie</td>
+                <td>172.20.10.5</td>
+              </tr>
+
+              <tr>
+                <td>12/05/2026 10:18</td>
+                <td>jdupont</td>
+                <td>Question posée</td>
+                <td>172.20.10.5</td>
+              </tr>
+
+              <tr>
+                <td>12/05/2026 10:25</td>
+                <td>admin</td>
+                <td>Création utilisateur</td>
+                <td>172.20.10.5</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
