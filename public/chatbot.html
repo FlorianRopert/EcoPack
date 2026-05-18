@@ -1,33 +1,62 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chatbot EcoPack</title>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+
+  <div id="loginScreen" class="login-overlay">
+    <div class="login-container">
+      <div class="login-header">
+        <img src="img/logo.png" alt="EcoPack IA" class="logo-icon-only" style="max-height: 100px; margin-bottom: 16px; width: auto;">
+        <h1>EcoPack IA</h1>
+        <p>Connectez-vous pour accéder au chatbot interne et aux documents autorisés.</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="login">Login</label>
+          <input type="text" id="login" name="login" placeholder="Votre identifiant" required />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" placeholder="Votre mot de passe" required />
+        </div>
+
+        <button type="submit" class="login-button">Se connecter</button>
+
+        <div id="errorMessage" class="error-message">Identifiants incorrects.</div>
+      </form>
+
+      <div class="login-footer">
+        © 2026 EcoPack - Assistant interne sécurisé
+      </div>
+    </div>
+  </div>
+
   <div class="app">
     <aside class="sidebar">
       <div class="logo">
-        <div class="logo-icon">🌱</div>
-        <div>
-          <h1>EcoPack IA</h1>
-          <p>Assistant interne</p>
-        </div>
+        <img src="img/logo.png" alt="EcoPack IA" class="logo-icon-only">
       </div>
 
       <nav class="menu">
         <a href="#" class="active">💬 Chatbot</a>
         <a href="#">📄 Documents</a>
         <a href="#">🔐 Droits d'accès</a>
-        <a href="#">⚙️ Administration</a>
+        <a href="/admin">⚙️ Administration</a>
       </nav>
 
       <div class="user-box">
         <strong>Utilisateur connecté</strong><br />
-        Jean Dupont<br />
-        Rôle : Ouvrier
+        <span id="connectedUserName">Jean Dupont</span><br />
+        Rôle : <span id="connectedUserRole">Ouvrier</span>
       </div>
     </aside>
 
@@ -58,7 +87,8 @@
         <div class="message bot">
           <div class="bubble">
             <strong>Assistant EcoPack</strong>
-            D’après les documents autorisés pour votre rôle, vous devez porter les EPI obligatoires et vérifier l’arrêt d’urgence avant utilisation.
+            D’après les documents autorisés pour votre rôle, vous devez porter les EPI obligatoires et vérifier l’arrêt
+            d’urgence avant utilisation.
           </div>
         </div>
       </section>
@@ -77,4 +107,5 @@
 
   <script src="script.js"></script>
 </body>
+
 </html>

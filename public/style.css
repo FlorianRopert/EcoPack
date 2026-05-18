@@ -320,3 +320,133 @@ body {
 .generate-btn:hover {
   background: #111827;
 }
+.logo-icon-only {
+  width: 100%;          /* Occupe toute la largeur disponible */
+  max-width: 280px;     /* Augmenté pour agrandir le logo */
+  height: auto;
+  max-height: 160px;    /* Augmenté pour permettre un affichage plus grand */
+  display: block;
+  margin: -15px auto 0; /* Le -15px fait remonter le logo vers le haut de la sidebar */
+  object-fit: contain;
+}
+/* Arrière-plan fixe qui masque le tchatbot */
+.login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #eaf8ef, #d8f0e0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999; /* Reste au-dessus de tout le reste */
+  padding: 20px;
+}
+
+.login-container {
+  width: 100%; 
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e5e7eb;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header h1 {
+  font-size: 30px;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.login-header p {
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input {
+  width: 100%; 
+  padding: 14px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus {
+  border-color: #1f7a4d;
+  box-shadow: 0 0 0 3px rgba(31, 122, 77, 0.12);
+}
+
+.login-button {
+  width: 100%; 
+  border: none;
+  background: #1f7a4d;
+  color: white;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-top: 8px;
+}
+
+.login-button:hover {
+  background: #17633d;
+}
+
+.login-footer {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.error-message {
+  display: none;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-size: 13px;
+}
+
+.demo-box {
+  margin-top: 24px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.demo-box strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #111827;
+}
