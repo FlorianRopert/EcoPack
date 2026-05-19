@@ -1,3 +1,6 @@
+import asyncio
+import websockets
+import json
 import pandas as pd
 import requests
 import os
@@ -14,9 +17,15 @@ FICHIERS = [
     "/home/debian/EcoPack/rag/data/09_Dossiers_personnel.xlsx",
 ]
 
+chunks = []
+
 def charger_donnees():
+    global chunks
     chunks = []
     for fichier in FICHIERS:
+        if not os.path.exists(fichier):
+            print(f"❌ Fichier non trouvé : {fichier}")
+            continue
         nom = os.path.basename(fichier)
         try:
             df = pd.read_excel(fichier)
@@ -25,35 +34,60 @@ def charger_donnees():
                 texte = nom + " | "
                 texte += " | ".join([str(col) + ": " + str(row[col]) for col in df.columns if row[col] != ""])
                 chunks.append(texte)
-            print(f"OK: {nom} ({len(df)} lignes)")
+            print(f"✅ {nom} ({len(df)} lignes)")
         except Exception as e:
-            print(f"ERREUR: {nom} -> {e}")
-    return chunks
+            print(f"❌ {nom} -> {e}")
+    print(f"\n✅ {len(chunks)} chunks chargés\n")
 
-def rechercher(question, chunks, n=2):
+def rechercher(question, n=3):
+    if not chunks:
+        return []
     q = question.lower()
     scores = []
     for chunk in chunks:
         mots = q.split()
         score = sum(1 for mot in mots if mot in chunk.lower())
         scores.append((score, chunk))
-    scores.sort(reverse=True)
+    scores.sort(reverse=True, key=lambda x: x[0])
     return [c for _, c in scores[:n]]
 
 def demander_ia(question, contexte):
-    prompt = "Tu es un assistant Ecopack. Utilise ces donnees pour repondre :\n\n" + contexte + "\n\nQuestion : " + question + "\nReponds en francais de facon concise."
-    r = requests.post("http://localhost:8080/v1/chat/completions",
-        json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 150})
-    return r.json()["choices"][0]["message"]["content"]
+    try:
+        prompt = "Tu es un assistant EcoPack. Utilise ces donnees pour repondre :\n\n" + contexte + "\n\nQuestion : " + question + "\nReponds en francais de facon concise."
+        r = requests.post("http://localhost:8080/v1/chat/completions",
+            json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 200},
+            timeout=30)
+        return r.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"Erreur IA: {str(e)}"
 
-print("Chargement des donnees...")
-chunks = charger_donnees()
-print(f"\n{len(chunks)} chunks prets\n")
+async def traiter_question(websocket):
+    try:
+        async for message in websocket:
+            try:
+                data = json.loads(message)
+                question = data.get('question', '')
 
-while True:
-    question = input("Question (q pour quitter) : ")
-    if question.lower() == "q":
-        break
-    contexte = "\n".join(rechercher(question, chunks))
-    reponse = demander_ia(question, contexte)
-    print(f"\nReponse : {reponse}\n")
+                if not question:
+                    await websocket.send(json.dumps({"reponse": "Question vide"}))
+                    continue
+
+                contexte = "\n".join(rechercher(question))
+                reponse = demander_ia(question, contexte)
+
+                await websocket.send(json.dumps({"reponse": reponse}))
+            except json.JSONDecodeError:
+                await websocket.send(json.dumps({"reponse": "JSON invalide"}))
+    except websockets.exceptions.ConnectionClosed:
+        print("Connexion fermée")
+
+async def main():
+    print("Chargement des données...")
+    charger_donnees()
+
+    async with websockets.serve(traiter_question, "localhost", 8765):
+        print("✅ Serveur WebSocket Python sur ws://localhost:8765")
+        await asyncio.Future()
+
+if __name__ == "__main__":
+    asyncio.run(main())
