@@ -30,7 +30,7 @@ function authMiddleware(req, res, next) {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded; // { id, login }
+        req.user = decoded; 
         next();
     } catch (err) {
         return res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
@@ -98,12 +98,16 @@ app.post('/connexion', async (req, res) => {
         });
     });
 });
-app.post('/register', async (req, res) => {
+app.post('/register', authMiddleware, async (req, res) => {
     const { nom, prenom, email, id_role, password } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
 
     if (!nom || !prenom || !email || !id_role || !password) {
         return res.status(400).json({ success: false, message: 'Tous les champs sont obligatoires (le mot de passe doit être généré par le front).' });
+    }
+
+    if (req.user.id_role !== 7) {
+        return res.status(403).json({ success: false, message: 'Accès refusé. Seuls les administrateurs peuvent créer des utilisateurs.' });
     }
 
     const cleanNom = nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
