@@ -8,7 +8,6 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_env';
 
-// ✅ Middleware JSON ajouté ici, AVANT toutes les routes
 app.use(express.json());
 
 const connection = mysql.createConnection({
@@ -23,6 +22,82 @@ connection.connect((err) => {
     console.log('Connecté à la base de données MySQL');
 });
 
+function authMiddleware(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.status(401).json({ success: false, message: 'Token manquant' });
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded; // { id, login }
+        next();
+    } catch (err) {
+        return res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
+    }
+}
+app.post('/connexion', async (req, res) => {
+    const { login, password } = req.body;
+    const ipAdresse = req.ip || req.connection.remoteAddress;
+
+    if (!login || !password) {
+        return res.status(400).json({ success: false, message: 'Identifiant et mot de passe requis.' });
+    }
+
+    const query = `
+        SELECT u.id_utilisateur, u.login, u.mot_de_passe, u.actif, r.id_role, r.nom_role 
+        FROM utilisateur u
+        LEFT JOIN AVOIR_ROLE ar ON u.id_utilisateur = ar.id_utilisateur
+        LEFT JOIN role r ON ar.id_role = r.id_role
+        WHERE u.login = ?
+    `;
+
+    connection.query(query, [login], async (err, results) => {
+        if (err) {
+            console.error('Erreur SQL lors de la connexion:', err);
+            return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
+        }
+
+        if (results.length === 0 || results[0].actif === 0) {
+            return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
+        }
+
+        const user = results[0];
+
+        const match = await bcrypt.compare(password, user.mot_de_passe);
+        if (!match) {
+            return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
+        }
+
+        const token = jwt.sign(
+            { 
+                id_utilisateur: user.id_utilisateur, 
+                login: user.login,
+                id_role: user.id_role,
+                role: user.nom_role
+            },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // Journalisation du LOG en arrière-plan
+        const logActionText = `Connexion réussie de l'utilisateur : ${login}`;
+        const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
+        
+        connection.query(insertLogQuery, [ipAdresse, logActionText], (logErr, logResult) => {
+            if (!logErr) {
+                const newLogId = logResult.insertId;
+                const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
+                connection.query(insertGenLogQuery, [user.id_utilisateur, newLogId]);
+            }
+        });
+        res.json({
+            success: true,
+            message: 'Connexion réussie !',
+            token: token
+        });
+    });
+});
 app.post('/register', async (req, res) => {
     const { nom, prenom, email, id_role, password } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
@@ -104,6 +179,39 @@ app.post('/register', async (req, res) => {
     }
 });
 
+app.get('/getrole', authMiddleware, (req, res) => {
+    const userId = req.user.id_utilisateur;
+
+    const query = `
+        SELECT r.id_role, r.nom_role, r.description 
+        FROM role r
+        INNER JOIN AVOIR_ROLE ar ON r.id_role = ar.id_role
+        WHERE ar.id_utilisateur = ?
+    `;
+
+    connection.query(query, [userId], (err, results) => {
+        if (err) {
+            console.error('Erreur SQL :', err);
+            return res.status(500).json({ success: false, message: 'Erreur serveur' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Rôle non trouvé' });
+        }
+
+        res.json({
+            success: true,
+            role: results[0]
+        });
+    });
+});
+
+
+
+
+
+
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
@@ -114,6 +222,6 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.listen(3000, '172.20.10.7', () => {
-    console.log(`Disponible sur http://172.20.10.7:${3000}`);
+app.listen(3000, '172.29.18.171', () => {
+    console.log(`Disponible sur http://172.29.18.171:${3000}`);
 });

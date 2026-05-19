@@ -7,23 +7,65 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app">
+
+  <div id="loginScreen" class="login-overlay" style="display: flex;">
+    <div class="login-container">
+      <div class="login-header">
+        <img src="img/logo.png" alt="EcoPack IA" class="logo-icon-only" style="max-height: 100px; margin-bottom: 16px; width: auto;">
+        <h1>EcoPack IA - Administration</h1>
+        <p>Connectez-vous pour accéder au panneau d'administration.</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="login">Login</label>
+          <input type="text" id="login" name="login" placeholder="Votre identifiant" required />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" placeholder="Votre mot de passe" required />
+        </div>
+
+        <button type="submit" class="login-button">Se connecter</button>
+
+        <div id="errorMessage" class="error-message" style="display: none;">Identifiants incorrects ou accès refusé.</div>
+      </form>
+
+      <div class="login-footer">
+        © 2026 EcoPack - Administration sécurisée
+      </div>
+    </div>
+  </div>
+
+  <!-- Message d'accès refusé -->
+  <div id="accessDenied" class="app" style="display: none; justify-content: center; align-items: center;">
+    <div style="text-align: center; padding: 40px;">
+      <h2 style="color: #dc2626; margin-bottom: 16px;">❌ Accès Refusé</h2>
+      <p style="font-size: 18px; color: #666; margin-bottom: 24px;">Vous n'êtes pas administrateur.<br>Vous ne pouvez pas accéder à cette page.</p>
+      <button onclick="logout()" style="background: #1f7a4d; color: white; border: none; padding: 12px 24px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+        Retour à l'accueil
+      </button>
+    </div>
+  </div>
+
+  <!-- Application (réservée aux admins) -->
+  <div class="app" id="appContainer" style="display: none;">
     <aside class="sidebar">
       <div class="logo">
         <img src="img/logo.png" alt="EcoPack IA" class="logo-icon-only">
       </div>
 
       <nav class="menu">
-        <a href="chatbot.html">💬 Chatbot</a>
-        <a href="#" class="active">⚙️ Administration</a>
+        <a href="/" >💬 Chatbot</a>
         <a href="#">📄 Documents</a>
-        <a href="#">📋 Logs</a>
+        <a href="/admin" class="active">⚙️ Administration</a>
       </nav>
 
       <div class="user-box">
         <strong>Administrateur</strong><br />
-        Admin EcoPack<br />
-        Rôle : Admin
+        <span id="connectedUserName">Admin</span><br />
+        Rôle : <span id="connectedUserRole">Admin</span>
       </div>
     </aside>
 
@@ -170,7 +212,6 @@
     </main>
   </div>
 
-  <!-- ✅ admin.js à la place de script.js -->
   <script src="admin.js"></script>
 </body>
 </html>
