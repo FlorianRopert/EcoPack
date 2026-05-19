@@ -38,7 +38,6 @@
     </div>
   </div>
 
-  <!-- Message d'accès refusé -->
   <div id="accessDenied" class="app" style="display: none; justify-content: center; align-items: center;">
     <div style="text-align: center; padding: 40px;">
       <h2 style="color: #dc2626; margin-bottom: 16px;">❌ Accès Refusé</h2>
@@ -49,7 +48,6 @@
     </div>
   </div>
 
-  <!-- Application (réservée aux admins) -->
   <div class="app" id="appContainer" style="display: none;">
     <aside class="sidebar">
       <div class="logo">
@@ -57,7 +55,7 @@
       </div>
 
       <nav class="menu">
-        <a href="/" >💬 Chatbot</a>
+        <a href="/">💬 Chatbot</a>
         <a href="#">📄 Documents</a>
         <a href="/admin" class="active">⚙️ Administration</a>
       </nav>
@@ -86,11 +84,11 @@
             <div class="form-row">
               <div>
                 <label>Nom</label>
-                <input id="nom" type="text" placeholder="Dupont" />
+                <input id="nom" type="text" placeholder="Dupont" oninput="updateLoginField()" />
               </div>
               <div>
                 <label>Prénom</label>
-                <input id="prenom" type="text" placeholder="Jean" />
+                <input id="prenom" type="text" placeholder="Jean" oninput="updateLoginField()" />
               </div>
             </div>
 
@@ -100,8 +98,8 @@
                 <input id="email" type="email" placeholder="jean.dupont@ecopack.fr" />
               </div>
               <div>
-                <label>Login</label>
-                <input type="text" placeholder="jdupont" />
+                <label>Login (généré automatiquement)</label>
+                <input id="generatedLogin" name="login" type="text" placeholder="dupont.jean" readonly />
               </div>
             </div>
 
@@ -137,7 +135,6 @@
 
         <div class="admin-card">
           <h3>Liste des utilisateurs</h3>
-
           <table class="admin-table">
             <thead>
               <tr>
@@ -176,7 +173,6 @@
 
         <div class="admin-card">
           <h3>Derniers logs</h3>
-
           <table class="admin-table">
             <thead>
               <tr>
@@ -186,27 +182,18 @@
                 <th>Adresse IP</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="logsTableBody">
               <tr>
-                <td>12/05/2026 10:15</td>
-                <td>jdupont</td>
-                <td>Connexion réussie</td>
-                <td>172.20.10.5</td>
-              </tr>
-              <tr>
-                <td>12/05/2026 10:18</td>
-                <td>jdupont</td>
-                <td>Question posée</td>
-                <td>172.20.10.5</td>
-              </tr>
-              <tr>
-                <td>12/05/2026 10:25</td>
-                <td>admin</td>
-                <td>Création utilisateur</td>
-                <td>172.20.10.5</td>
+                <td colspan="4" style="text-align: center; color: #888;">Chargement des logs...</td>
               </tr>
             </tbody>
           </table>
+
+          <div class="pagination-container" style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 16px;">
+            <button id="prevLogPage" class="small-btn" style="padding: 6px 12px;">« Précédent</button>
+            <div id="logPagesNumbers" style="display: flex; gap: 4px;"></div>
+            <button id="nextLogPage" class="small-btn" style="padding: 6px 12px;">Suivant »</button>
+          </div>
         </div>
       </section>
     </main>

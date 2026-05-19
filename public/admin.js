@@ -1,3 +1,7 @@
+let tousLesLogs = []; 
+let logCurrentPage = 1;
+const LOGS_PAR_PAGE = 20;
+
 function generatePassword() {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let password = "";
@@ -11,6 +15,21 @@ function generatePassword() {
     }
 
     document.getElementById('tempPassword').value = password;
+}
+
+function updateLoginField() {
+    const nom = document.getElementById('nom').value.trim();
+    const prenom = document.getElementById('prenom').value.trim();
+    const loginField = document.getElementById('generatedLogin');
+
+    if (nom && prenom) {
+        const cleanNom = nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
+        const cleanPrenom = prenom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
+        const newLogin = `${cleanNom}.${cleanPrenom}`.toLowerCase();
+        loginField.value = newLogin;
+    } else {
+        loginField.value = '';
+    }
 }
 
 function decoderJWT(token) {
@@ -30,6 +49,100 @@ function decoderJWT(token) {
 function logout() {
     localStorage.removeItem('token');
     location.reload();
+}
+
+async function chargerDerniersLogs() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/logs', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            tousLesLogs = data.logs || [];
+            afficherPageLogs(1);
+        } else {
+            console.error(data.message);
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function afficherPageLogs(page) {
+    logCurrentPage = page;
+    const tbody = document.getElementById('logsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (tousLesLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #888;">Aucun log disponible.</td></tr>';
+        renderPaginationControls(1);
+        return;
+    }
+
+    const indexDebut = (page - 1) * LOGS_PAR_PAGE;
+    const indexFin = indexDebut + LOGS_PAR_PAGE;
+    const logsDeLaPage = tousLesLogs.slice(indexDebut, indexFin);
+
+    logsDeLaPage.forEach(log => {
+        const tr = document.createElement('tr');
+        const utilisateurStr = log.login || '<i>Système</i>';
+        tr.innerHTML = `
+            <td>${log.date_action}</td>
+            <td>${utilisateurStr}</td>
+            <td>${log.action}</td>
+            <td>${log.adresse_ip}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const totalPages = Math.ceil(tousLesLogs.length / LOGS_PAR_PAGE);
+    renderPaginationControls(totalPages);
+}
+
+function renderPaginationControls(total) {
+    const btnPrev = document.getElementById('prevLogPage');
+    const btnNext = document.getElementById('nextLogPage');
+    const containerNumbers = document.getElementById('logPagesNumbers');
+
+    if (!btnPrev || !btnNext || !containerNumbers) return;
+
+    containerNumbers.innerHTML = '';
+
+    btnPrev.disabled = (logCurrentPage === 1);
+    btnNext.disabled = (logCurrentPage === total || total === 0);
+
+    btnPrev.onclick = () => { if (logCurrentPage > 1) afficherPageLogs(logCurrentPage - 1); };
+    btnNext.onclick = () => { if (logCurrentPage < total) afficherPageLogs(logCurrentPage + 1); };
+
+    for (let i = 1; i <= total; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.innerText = i;
+        pageBtn.style.padding = '6px 12px';
+        pageBtn.style.border = '1px solid #ccc';
+        pageBtn.style.borderRadius = '4px';
+        pageBtn.style.cursor = 'pointer';
+        
+        if (i === logCurrentPage) {
+            pageBtn.style.background = '#1f7a4d';
+            pageBtn.style.color = 'white';
+            pageBtn.style.fontWeight = 'bold';
+        } else {
+            pageBtn.style.background = '#fff';
+            pageBtn.style.color = '#333';
+        }
+
+        pageBtn.onclick = () => {
+            afficherPageLogs(i);
+        };
+
+        containerNumbers.appendChild(pageBtn);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -55,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 accessDenied.style.display = 'none';
                 connectedUserName.textContent = donneesUtilisateur.login;
                 connectedUserRole.textContent = donneesUtilisateur.role || 'Admin';
+                chargerDerniersLogs();
             } else {
                 loginScreen.style.display = 'none';
                 appContainer.style.display = 'none';
@@ -77,8 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             errorMessage.style.display = 'none';
 
-            const loginValue = document.getElementById('login').value.trim();
-            const passwordValue = document.getElementById('password').value.trim();
+            const loginValue = document.querySelector('#loginForm input[name="login"]').value.trim();
+            const passwordValue = document.querySelector('#loginForm input[name="password"]').value.trim();
 
             try {
                 const response = await fetch('/connexion', {
@@ -100,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         appContainer.style.display = 'flex';
                         accessDenied.style.display = 'none';
                         loginForm.reset();
+                        chargerDerniersLogs();
                     } else {
                         loginScreen.style.display = 'none';
                         appContainer.style.display = 'none';
@@ -134,9 +249,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
+                const token = localStorage.getItem('token');
                 const response = await fetch('/register', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ nom, prenom, email, id_role, password })
                 });
 
@@ -145,6 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok && data.success) {
                     alert(`Compte créé avec succès !\n\nIdentifiant unique : ${data.login}\nMot de passe : ${password}`);
                     registerForm.reset();
+                    document.getElementById('generatedLogin').value = '';
+                    chargerDerniersLogs();
                 } else {
                     alert(`Erreur : ${data.message}`);
                 }

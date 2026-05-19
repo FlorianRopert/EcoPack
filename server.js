@@ -210,7 +210,40 @@ app.get('/getrole', authMiddleware, (req, res) => {
     });
 });
 
+app.get('/logs', authMiddleware, (req, res) => {
+    if (req.user.id_role !== 7) {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Accès refusé. Seuls les administrateurs peuvent consulter les logs.' 
+        });
+    }
 
+    const query = `
+        SELECT 
+            l.id_log,
+            l.adresse_ip,
+            l.action,
+            DATE_FORMAT(l.date_action, '%d/%m/%Y %H:%i') AS date_action,
+            u.login
+        FROM LOG l
+        LEFT JOIN GENERER_LOG gl ON l.id_log = gl.id_log
+        LEFT JOIN utilisateur u ON gl.id_utilisateur = u.id_utilisateur
+        ORDER BY l.date_action DESC
+        LIMIT 50
+    `;
+
+    connection.query(query, (err, results) => {
+        if (err) {
+            console.error('Erreur SQL lors de la récupération des logs :', err);
+            return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
+        }
+
+        res.json({
+            success: true,
+            logs: results
+        });
+    });
+});
 
 
 
