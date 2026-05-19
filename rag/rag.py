@@ -3,15 +3,15 @@ import requests
 import os
 
 FICHIERS = [
-    "/home/debian/data/01_Informations_ouvriers.xlsx",
-    "/home/debian/data/02_Contrats_salaires.xlsx",
-    "/home/debian/data/03_Notices_techniques_machines.xlsx",
-    "/home/debian/data/04_Historique_maintenance.xlsx",
-    "/home/debian/data/05_Stocks_expeditions.xlsx",
-    "/home/debian/data/06_Rapports_qualite_NC.xlsx",
-    "/home/debian/data/07_Comptes_utilisateurs_logs.xlsx",
-    "/home/debian/data/08_Planning_equipes.xlsx",
-    "/home/debian/data/09_Dossiers_personnel.xlsx",
+    "/home/debian/EcoPack/rag/data/01_Informations_ouvriers.xlsx",
+    "/home/debian/EcoPack/rag/data/02_Contrats_salaires.xlsx",
+    "/home/debian/EcoPack/rag/data/03_Notices_techniques_machines.xlsx",
+    "/home/debian/EcoPack/rag/data/04_Historique_maintenance.xlsx",
+    "/home/debian/EcoPack/rag/data/05_Stocks_expeditions.xlsx",
+    "/home/debian/EcoPack/rag/data/06_Rapports_qualite_NC.xlsx",
+    "/home/debian/EcoPack/rag/data/07_Comptes_utilisateurs_logs.xlsx",
+    "/home/debian/EcoPack/rag/data/08_Planning_equipes.xlsx",
+    "/home/debian/EcoPack/rag/data/09_Dossiers_personnel.xlsx",
 ]
 
 def charger_donnees():
