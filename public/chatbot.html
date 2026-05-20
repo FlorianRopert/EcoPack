@@ -68,34 +68,19 @@
         <button class="logout" onclick="logout()">Déconnexion</button>
       </header>
 
-      <section class="messages">
+      <section class="messages" id="messagesContainer">
         <div class="message bot">
           <div class="bubble">
             <strong>Assistant EcoPack</strong>
-            Bonjour, je suis l’assistant interne EcoPack. Comment puis-je vous aider ?
-          </div>
-        </div>
-
-        <div class="message user">
-          <div class="bubble">
-            <strong>Vous</strong>
-            Quelle est la procédure de sécurité pour la machine de découpe ?
-          </div>
-        </div>
-
-        <div class="message bot">
-          <div class="bubble">
-            <strong>Assistant EcoPack</strong>
-            D’après les documents autorisés pour votre rôle, vous devez porter les EPI obligatoires et vérifier l’arrêt
-            d’urgence avant utilisation.
+            Bonjour, je suis l'assistant interne EcoPack. Comment puis-je vous aider ?
           </div>
         </div>
       </section>
 
       <footer class="chat-input">
         <div class="input-row">
-          <input type="text" placeholder="Posez votre question sur EcoPack..." />
-          <button>Envoyer</button>
+          <input type="text" id="chatInput" placeholder="Posez votre question sur EcoPack..." />
+          <button id="sendBtn">Envoyer</button>
         </div>
         <p class="note">
           Le chatbot répond uniquement avec les documents autorisés pour votre rôle.

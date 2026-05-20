@@ -1,4 +1,3 @@
-// Fonction pour décoder la partie "Payload" d'un token JWT sans bibliothèque externe
 function decoderJWT(token) {
     try {
         const base64Url = token.split('.')[1];
@@ -9,8 +8,59 @@ function decoderJWT(token) {
 
         return JSON.parse(jsonPayload);
     } catch (error) {
-        console.error("Impossible de décoder le token JWT :", error);
         return null;
+    }
+}
+
+function ajouterMessage(texte, type) {
+    const messages = document.getElementById('messagesContainer');
+    const div = document.createElement('div');
+    div.className = `message ${type}`;
+    div.innerHTML = `
+        <div class="bubble">
+            <strong>${type === 'user' ? 'Vous' : 'Assistant EcoPack'}</strong>
+            ${texte}
+        </div>
+    `;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+async function envoyerQuestion() {
+    const input = document.getElementById('chatInput');
+    const question = input.value.trim();
+
+    if (!question) return;
+
+    ajouterMessage(question, 'user');
+    input.value = '';
+
+    ajouterMessage('⏳ Recherche en cours...', 'bot');
+    const messages = document.getElementById('messagesContainer');
+    const loadingMsg = messages.lastChild;
+
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ question })
+        });
+
+        const data = await response.json();
+        loadingMsg.remove();
+
+        if (response.ok && data.success) {
+            ajouterMessage(data.reponse, 'bot');
+        } else {
+            ajouterMessage(`Erreur : ${data.message}`, 'bot');
+        }
+    } catch (error) {
+        loadingMsg.remove();
+        ajouterMessage('Impossible de joindre le serveur.', 'bot');
     }
 }
 
@@ -18,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginScreen = document.getElementById('loginScreen');
     const loginForm = document.getElementById('loginForm');
     const errorMessage = document.getElementById('errorMessage');
-    
     const connectedUserName = document.getElementById('connectedUserName');
     const connectedUserRole = document.getElementById('connectedUserRole');
 
@@ -28,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const donneesUtilisateur = decoderJWT(token);
         if (donneesUtilisateur) {
             loginScreen.style.display = 'none';
-            connectedUserName.textContent = donneesUtilisateur.login; // ou son ID selon tes besoins
+            connectedUserName.textContent = donneesUtilisateur.login;
             connectedUserRole.textContent = donneesUtilisateur.role || 'Non défini';
         } else {
             localStorage.removeItem('token');
@@ -56,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok && data.success) {
                 localStorage.setItem('token', data.token);
-
                 const infos = decoderJWT(data.token);
 
                 if (infos) {
@@ -72,19 +120,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
-            console.error('Erreur réseau :', error);
             errorMessage.textContent = 'Impossible de joindre le serveur.';
             errorMessage.style.display = 'block';
         }
     });
+
+    // Gestion du chat
+    const sendBtn = document.getElementById('sendBtn');
+    const chatInput = document.getElementById('chatInput');
+
+    if (sendBtn) {
+        sendBtn.addEventListener('click', envoyerQuestion);
+    }
+
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                envoyerQuestion();
+            }
+        });
+    }
 });
 
 function logout() {
     localStorage.removeItem('token');
-    const loginScreen = document.getElementById('loginScreen');
-    if (loginScreen) {
-        loginScreen.style.display = 'flex';
-    } else {
-        window.location.href = '/';
-    }
+    location.reload();
 }
