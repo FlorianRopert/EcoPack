@@ -36,6 +36,7 @@ function authMiddleware(req, res, next) {
         return res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
     }
 }
+
 app.post('/connexion', async (req, res) => {
     const { login, password } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
@@ -97,6 +98,7 @@ app.post('/connexion', async (req, res) => {
         });
     });
 });
+
 app.post('/register', authMiddleware, async (req, res) => {
     const { nom, prenom, email, id_role, password } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
@@ -268,8 +270,6 @@ app.post('/chat', authMiddleware, (req, res) => {
         res.status(500).json({ success: false, message: 'Erreur RAG' });
     });
 });
-
-
 
 app.use(express.static(path.join(__dirname, 'public')));
 

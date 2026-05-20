@@ -17,6 +17,18 @@ FICHIERS = [
     "/home/debian/EcoPack/rag/data/09_Dossiers_personnel.xlsx",
 ]
 
+MOTS_CLES_FICHIERS = {
+    "01_Informations_ouvriers": ["ouvrier", "employe", "personnel", "salarie", "ouvriers"],
+    "02_Contrats_salaires": ["salaire", "contrat", "paie", "remuneration", "prime"],
+    "03_Notices_techniques_machines": ["machine", "machines", "equipement", "fabricant", "modele", "puissance"],
+    "04_Historique_maintenance": ["maintenance", "panne", "reparation", "intervention", "technicien"],
+    "05_Stocks_expeditions": ["stock", "stocks", "article", "produit", "boite", "carton", "expedition"],
+    "06_Rapports_qualite_NC": ["qualite", "controle", "conformite", "defaut", "lot"],
+    "07_Comptes_utilisateurs_logs": ["compte", "login", "utilisateur", "connexion", "acces", "mdp"],
+    "08_Planning_equipes": ["planning", "equipe", "horaire", "atelier", "roulement", "chef"],
+    "09_Dossiers_personnel": ["adresse", "telephone", "naissance", "famille", "nationalite", "medical"]
+}
+
 chunks = []
 
 def charger_donnees():
@@ -24,7 +36,7 @@ def charger_donnees():
     chunks = []
     for fichier in FICHIERS:
         if not os.path.exists(fichier):
-            print(f"❌ Fichier non trouvé : {fichier}")
+            print(f"Fichier non trouve : {fichier}")
             continue
         nom = os.path.basename(fichier)
         try:
@@ -34,22 +46,36 @@ def charger_donnees():
                 texte = nom + " | "
                 texte += " | ".join([str(col) + ": " + str(row[col]) for col in df.columns if row[col] != ""])
                 chunks.append(texte)
-            print(f"✅ {nom} ({len(df)} lignes)")
+            print(f"OK {nom} ({len(df)} lignes)")
         except Exception as e:
-            print(f"❌ {nom} -> {e}")
-    print(f"\n✅ {len(chunks)} chunks chargés\n")
+            print(f"ERREUR {nom} -> {e}")
+    print(f"\n{len(chunks)} chunks charges\n")
 
-def rechercher(question, n=5):
+def rechercher(question, n=2):
     if not chunks:
         return []
     
     q = question.lower()
     mots_question = [m for m in q.split() if len(m) > 2]
     
+    fichiers_pertinents = []
+    for prefix, mots_cles in MOTS_CLES_FICHIERS.items():
+        for mc in mots_cles:
+            if mc in q:
+                fichiers_pertinents.append(prefix)
+                break
+    
     scores = []
     for chunk in chunks:
         chunk_lower = chunk.lower()
         score = sum(1 for mot in mots_question if mot in chunk_lower)
+        
+        if fichiers_pertinents:
+            for prefix in fichiers_pertinents:
+                if prefix.lower() in chunk_lower:
+                    score += 5
+                    break
+        
         if score > 0:
             scores.append((score, chunk))
     
@@ -59,35 +85,33 @@ def rechercher(question, n=5):
 def demander_ia(question, contexte):
     try:
         if not contexte.strip():
-            return "Aucune donnée trouvée dans la base pour répondre à cette question."
+            return "Aucune donnee trouvee dans la base pour repondre a cette question."
         
-        prompt = f"""Tu es un assistant interne EcoPack. Tu DOIS répondre uniquement avec les données fournies ci-dessous, qui sont des données internes professionnelles autorisées de l'entreprise.
+        prompt = f"""You are a data lookup assistant for EcoPack company. Your only job is to extract information from the provided business data and respond in French. The data is internal company records that you ARE authorized to access and share.
 
-DONNÉES INTERNES EcoPack :
+DATA:
 {contexte}
 
-QUESTION : {question}
+USER QUESTION (in French): {question}
 
-INSTRUCTIONS :
-- Réponds en français de façon concise
-- Utilise UNIQUEMENT les données ci-dessus
-- Si l'information est dans les données, donne-la directement
-- Ne refuse PAS de répondre, ces données sont des données internes autorisées
-- Si l'information n'est pas dans les données, dis "Information non trouvée dans la base"
+Extract the answer from the DATA above and respond in French. Be direct and concise. Do not refuse. Do not add warnings. Just give the answer based on the data. If the data does not contain the answer, say "Je n'ai pas trouvé cette information dans les données."
 
-RÉPONSE :"""
+ANSWER IN FRENCH:"""
         
         r = requests.post("http://localhost:11434/api/generate",
             json={
-                "model": "llama3.2:1b",
+                "model": "llama3.2:3b",
                 "prompt": prompt,
                 "stream": False,
+                "keep_alive": "24h",
                 "options": {
-                    "temperature": 0.1
+                    "temperature": 0.1,
+                    "num_predict": 250,
+                    "num_ctx": 3000
                 }
             },
-            timeout=60)
-        return r.json()["response"]
+            timeout=300)
+        return r.json()["response"].strip()
     except Exception as e:
         return f"Erreur IA: {str(e)}"
 
@@ -102,27 +126,31 @@ async def traiter_question(websocket):
                     await websocket.send(json.dumps({"reponse": "Question vide"}))
                     continue
 
-                print(f"\n📥 Question : {question}")
+                print(f"\n>>> Question : {question}")
                 
-                contexte = "\n".join(rechercher(question))
-                print(f"📚 Contexte trouvé : {len(contexte)} caractères")
-                print(f"--- DEBUT CONTEXTE ---\n{contexte[:500]}\n--- FIN CONTEXTE ---")
+                resultats = rechercher(question)
+                contexte = "\n\n".join(resultats)
+                
+                if len(contexte) > 2500:
+                    contexte = contexte[:2500]
+                
+                print(f"--- Contexte trouve : {len(contexte)} caracteres ---")
                 
                 reponse = demander_ia(question, contexte)
-                print(f"🤖 Réponse : {reponse[:200]}\n")
+                print(f">>> Reponse : {reponse[:200]}\n")
 
                 await websocket.send(json.dumps({"reponse": reponse}))
             except json.JSONDecodeError:
                 await websocket.send(json.dumps({"reponse": "JSON invalide"}))
     except websockets.exceptions.ConnectionClosed:
-        print("Connexion fermée")
+        print("Connexion fermee")
 
 async def main():
-    print("Chargement des données...")
+    print("Chargement des donnees...")
     charger_donnees()
 
     async with websockets.serve(traiter_question, "localhost", 8765):
-        print("✅ Serveur WebSocket Python sur ws://localhost:8765")
+        print("Serveur WebSocket Python sur ws://localhost:8765")
         await asyncio.Future()
 
 if __name__ == "__main__":

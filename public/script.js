@@ -125,7 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Gestion du chat
     const sendBtn = document.getElementById('sendBtn');
     const chatInput = document.getElementById('chatInput');
 
