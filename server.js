@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { WebSocketServer } = require('ws');
+const { WebSocketServer, WebSocket } = require('ws');
 const mysql = require('mysql2');
 const path = require('path');
 const bcrypt = require('bcrypt');

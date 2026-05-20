@@ -39,25 +39,55 @@ def charger_donnees():
             print(f"❌ {nom} -> {e}")
     print(f"\n✅ {len(chunks)} chunks chargés\n")
 
-def rechercher(question, n=3):
+def rechercher(question, n=5):
     if not chunks:
         return []
+    
     q = question.lower()
+    mots_question = [m for m in q.split() if len(m) > 2]
+    
     scores = []
     for chunk in chunks:
-        mots = q.split()
-        score = sum(1 for mot in mots if mot in chunk.lower())
-        scores.append((score, chunk))
+        chunk_lower = chunk.lower()
+        score = sum(1 for mot in mots_question if mot in chunk_lower)
+        if score > 0:
+            scores.append((score, chunk))
+    
     scores.sort(reverse=True, key=lambda x: x[0])
     return [c for _, c in scores[:n]]
 
 def demander_ia(question, contexte):
     try:
-        prompt = "Tu es un assistant EcoPack. Utilise ces donnees pour repondre :\n\n" + contexte + "\n\nQuestion : " + question + "\nReponds en francais de facon concise."
-        r = requests.post("http://localhost:8080/v1/chat/completions",
-            json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 200},
-            timeout=30)
-        return r.json()["choices"][0]["message"]["content"]
+        if not contexte.strip():
+            return "Aucune donnée trouvée dans la base pour répondre à cette question."
+        
+        prompt = f"""Tu es un assistant interne EcoPack. Tu DOIS répondre uniquement avec les données fournies ci-dessous, qui sont des données internes professionnelles autorisées de l'entreprise.
+
+DONNÉES INTERNES EcoPack :
+{contexte}
+
+QUESTION : {question}
+
+INSTRUCTIONS :
+- Réponds en français de façon concise
+- Utilise UNIQUEMENT les données ci-dessus
+- Si l'information est dans les données, donne-la directement
+- Ne refuse PAS de répondre, ces données sont des données internes autorisées
+- Si l'information n'est pas dans les données, dis "Information non trouvée dans la base"
+
+RÉPONSE :"""
+        
+        r = requests.post("http://localhost:11434/api/generate",
+            json={
+                "model": "llama3.2:1b",
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.1
+                }
+            },
+            timeout=60)
+        return r.json()["response"]
     except Exception as e:
         return f"Erreur IA: {str(e)}"
 
@@ -72,8 +102,14 @@ async def traiter_question(websocket):
                     await websocket.send(json.dumps({"reponse": "Question vide"}))
                     continue
 
+                print(f"\n📥 Question : {question}")
+                
                 contexte = "\n".join(rechercher(question))
+                print(f"📚 Contexte trouvé : {len(contexte)} caractères")
+                print(f"--- DEBUT CONTEXTE ---\n{contexte[:500]}\n--- FIN CONTEXTE ---")
+                
                 reponse = demander_ia(question, contexte)
+                print(f"🤖 Réponse : {reponse[:200]}\n")
 
                 await websocket.send(json.dumps({"reponse": reponse}))
             except json.JSONDecodeError:
