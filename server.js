@@ -80,7 +80,6 @@ app.post('/connexion', async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        // Journalisation du LOG en arrière-plan
         const logActionText = `Connexion réussie de l'utilisateur : ${login}`;
         const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
         
@@ -245,7 +244,30 @@ app.get('/logs', authMiddleware, (req, res) => {
     });
 });
 
+app.post('/chat', authMiddleware, (req, res) => {
+    const { question } = req.body;
 
+    if (!question) {
+        return res.status(400).json({ success: false, message: 'Question vide' });
+    }
+
+    const ws = new WebSocket('ws://localhost:8765');
+
+    ws.on('open', () => {
+        ws.send(JSON.stringify({ question }));
+    });
+
+    ws.on('message', (message) => {
+        const data = JSON.parse(message.toString());
+        ws.close();
+        res.json({ success: true, reponse: data.reponse });
+    });
+
+    ws.on('error', (err) => {
+        console.error('Erreur WebSocket :', err);
+        res.status(500).json({ success: false, message: 'Erreur RAG' });
+    });
+});
 
 
 
