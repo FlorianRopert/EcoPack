@@ -152,7 +152,7 @@ app.post('/register', authMiddleware, async (req, res) => {
                         const newLogId = logResult.insertId;
 
                         const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
-                        connection.query(insertGenLogQuery, [newUserId, newLogId], (err) => {
+                        connection.query(insertGenLogQuery, [req.user.id_utilisateur, newLogId], (err) => {
                             if (err) {
                                 return connection.rollback(() => {
                                     return res.status(500).json({ success: false, message: 'Erreur de liaison du LOG' });
@@ -230,7 +230,7 @@ app.get('/logs', authMiddleware, (req, res) => {
         LEFT JOIN GENERER_LOG gl ON l.id_log = gl.id_log
         LEFT JOIN utilisateur u ON gl.id_utilisateur = u.id_utilisateur
         ORDER BY l.date_action DESC
-        LIMIT 50
+        LIMIT 200
     `;
 
     connection.query(query, (err, results) => {
@@ -248,6 +248,9 @@ app.get('/logs', authMiddleware, (req, res) => {
 
 app.post('/chat', authMiddleware, (req, res) => {
     const { question } = req.body;
+    const ipAdresse = req.ip || req.connection.remoteAddress;
+    const userId = req.user.id_utilisateur;
+    const userLogin = req.user.login;
 
     if (!question) {
         return res.status(400).json({ success: false, message: 'Question vide' });
@@ -262,6 +265,34 @@ app.post('/chat', authMiddleware, (req, res) => {
     ws.on('message', (message) => {
         const data = JSON.parse(message.toString());
         ws.close();
+
+        // Logger la question dans la table LOG + GENERER_LOG
+        const questionCourte = question.length > 100 ? question.substring(0, 100) + '...' : question;
+        const logActionText = `Question posée par ${userLogin} : "${questionCourte}"`;
+        const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
+        
+        connection.query(insertLogQuery, [ipAdresse, logActionText], (logErr, logResult) => {
+            if (!logErr) {
+                const newLogId = logResult.insertId;
+                const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
+                connection.query(insertGenLogQuery, [userId, newLogId]);
+            } else {
+                console.error('Erreur log chat :', logErr);
+            }
+        });
+
+        // Sauvegarder la question complète dans la table QUESTION + POSER
+        const insertQuestionQuery = 'INSERT INTO question (contenu, date_question) VALUES (?, NOW())';
+        connection.query(insertQuestionQuery, [question], (qErr, qResult) => {
+            if (!qErr) {
+                const newQuestionId = qResult.insertId;
+                const insertPoserQuery = 'INSERT INTO POSER (id_utilisateur, id_question) VALUES (?, ?)';
+                connection.query(insertPoserQuery, [userId, newQuestionId]);
+            } else {
+                console.error('Erreur sauvegarde question :', qErr);
+            }
+        });
+
         res.json({ success: true, reponse: data.reponse });
     });
 

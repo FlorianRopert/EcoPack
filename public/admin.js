@@ -63,7 +63,7 @@ async function chargerDerniersLogs() {
 
         if (response.ok && data.success) {
             tousLesLogs = data.logs || [];
-            afficherPageLogs(1);
+            afficherPageLogs(logCurrentPage);
         } else {
             console.error(data.message);
         }
@@ -169,6 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 connectedUserName.textContent = donneesUtilisateur.login;
                 connectedUserRole.textContent = donneesUtilisateur.role || 'Admin';
                 chargerDerniersLogs();
+                // Rafraîchir les logs toutes les 10 secondes
+                setInterval(chargerDerniersLogs, 10000);
             } else {
                 loginScreen.style.display = 'none';
                 appContainer.style.display = 'none';
@@ -215,6 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         accessDenied.style.display = 'none';
                         loginForm.reset();
                         chargerDerniersLogs();
+                        // Rafraîchir les logs toutes les 10 secondes
+                        setInterval(chargerDerniersLogs, 10000);
                     } else {
                         loginScreen.style.display = 'none';
                         appContainer.style.display = 'none';
