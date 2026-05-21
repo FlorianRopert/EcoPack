@@ -6,10 +6,13 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const app = express();
+// Clé secrète utilisée pour créer les tokens JWT (stocker dans le fichier .env )
 const JWT_SECRET = process.env.JWT_SECRET || 'change_me_in_env';
 
+// Middleware pour lire le JSON envoyé par le front
 app.use(express.json());
 
+// Connexion à la base de données avec les infos du .env
 const connection = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -22,29 +25,35 @@ connection.connect((err) => {
     console.log('Connecté à la base de données MySQL');
 });
 
+// Middleware qui vérifie le token JWT envoyé par le front
 function authMiddleware(req, res, next) {
+    // On récupère le token dans le header Authorization
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) return res.status(401).json({ success: false, message: 'Token manquant' });
 
     try {
+        // On vérifie que le token est valide avec la clé secrète
         const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded; 
+        req.user = decoded; // On met les infos de l'utilisateur dans req.user
         next();
     } catch (err) {
         return res.status(403).json({ success: false, message: 'Token invalide ou expiré' });
     }
 }
 
+// Route de connexion 
 app.post('/connexion', async (req, res) => {
     const { login, password } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
 
+    // Vérification que tous les champs sont remplis
     if (!login || !password) {
         return res.status(400).json({ success: false, message: 'Identifiant et mot de passe requis.' });
     }
 
+    // Requête SQL pour récupérer l'utilisateur + son rôle
     const query = `
         SELECT u.id_utilisateur, u.login, u.mot_de_passe, u.actif, r.id_role, r.nom_role 
         FROM utilisateur u
@@ -59,17 +68,20 @@ app.post('/connexion', async (req, res) => {
             return res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
         }
 
+        // Si pas de résultat ou compte désactivé
         if (results.length === 0 || results[0].actif === 0) {
             return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
         }
 
         const user = results[0];
 
+        // On compare le mot de passe avec le hash en BDD avec bcrypt
         const match = await bcrypt.compare(password, user.mot_de_passe);
         if (!match) {
             return res.status(401).json({ success: false, message: 'Identifiants invalides.' });
         }
 
+        // On génère un token JWT valide 7 jours avec les infos de l'utilisateur
         const token = jwt.sign(
             { 
                 id_utilisateur: user.id_utilisateur, 
@@ -81,16 +93,19 @@ app.post('/connexion', async (req, res) => {
             { expiresIn: '7d' }
         );
 
+        // On enregistre un log de connexion dans la BDD
         const logActionText = `Connexion réussie de l'utilisateur : ${login}`;
         const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
         
         connection.query(insertLogQuery, [ipAdresse, logActionText], (logErr, logResult) => {
             if (!logErr) {
                 const newLogId = logResult.insertId;
+                // Liaison du log avec l'utilisateur dans la table GENERER_LOG
                 const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
                 connection.query(insertGenLogQuery, [user.id_utilisateur, newLogId]);
             }
         });
+        // On renvoie le token au front
         res.json({
             success: true,
             message: 'Connexion réussie !',
@@ -99,32 +114,40 @@ app.post('/connexion', async (req, res) => {
     });
 });
 
+// Route pour créer un nouvel utilisateur (réservée aux admins)
 app.post('/register', authMiddleware, async (req, res) => {
     const { nom, prenom, email, id_role, password } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
 
+    // Vérification que tous les champs sont remplis
     if (!nom || !prenom || !email || !id_role || !password) {
         return res.status(400).json({ success: false, message: 'Tous les champs sont obligatoires (le mot de passe doit être généré par le front).' });
     }
 
+    // On vérifie que l'utilisateur connecté est bien un admin (id_role 7)
     if (req.user.id_role !== 7) {
         return res.status(403).json({ success: false, message: 'Accès refusé. Seuls les administrateurs peuvent créer des utilisateurs.' });
     }
 
+    // On nettoie le nom et prénom pour créer le login (sans accents ni espaces)
     const cleanNom = nom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
     const cleanPrenom = prenom.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
     const login = `${cleanNom}.${cleanPrenom}`;
 
     try {
+        // On hash le mot de passe avec bcrypt avant de le stocker
         const hash = await bcrypt.hash(password, 12);
 
+        // On utilise une transaction pour insérer dans plusieurs tables d'un coup
         connection.beginTransaction(async (transactionErr) => {
             if (transactionErr) return res.status(500).json({ success: false, message: 'Erreur d\'initialisation de la transaction' });
 
+            // 1. On insère l'utilisateur dans la table utilisateur
             const insertUserQuery = 'INSERT INTO utilisateur (nom, prenom, email, login, mot_de_passe, actif) VALUES (?, ?, ?, ?, ?, 1)';
             connection.query(insertUserQuery, [nom, prenom, email, login, hash], (err, userResult) => {
                 if (err) {
                     return connection.rollback(() => {
+                        // Si email ou login déjà existant
                         if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ success: false, message: 'Cet utilisateur existe déjà (Email ou Login en doublon).' });
                         return res.status(500).json({ success: false, message: 'Erreur lors de la création de l\'utilisateur' });
                     });
@@ -132,6 +155,7 @@ app.post('/register', authMiddleware, async (req, res) => {
 
                 const newUserId = userResult.insertId;
 
+                // 2. On attribue le rôle à l'utilisateur dans AVOIR_ROLE
                 const insertRoleQuery = 'INSERT INTO AVOIR_ROLE (id_utilisateur, id_role) VALUES (?, ?)';
                 connection.query(insertRoleQuery, [newUserId, id_role], (err) => {
                     if (err) {
@@ -140,6 +164,7 @@ app.post('/register', authMiddleware, async (req, res) => {
                         });
                     }
 
+                    // 3. On enregistre un log de création
                     const logActionText = `Création du compte utilisateur : ${login}`;
                     const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
                     connection.query(insertLogQuery, [ipAdresse, logActionText], (err, logResult) => {
@@ -151,6 +176,7 @@ app.post('/register', authMiddleware, async (req, res) => {
 
                         const newLogId = logResult.insertId;
 
+                        // 4. On lie le log à l'admin qui a fait l'action
                         const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
                         connection.query(insertGenLogQuery, [req.user.id_utilisateur, newLogId], (err) => {
                             if (err) {
@@ -159,6 +185,7 @@ app.post('/register', authMiddleware, async (req, res) => {
                                 });
                             }
 
+                            // 5. On valide la transaction si tout s'est bien passé
                             connection.commit((commitErr) => {
                                 if (commitErr) {
                                     return connection.rollback(() => {
@@ -184,9 +211,11 @@ app.post('/register', authMiddleware, async (req, res) => {
     }
 });
 
+// Route pour récupérer le rôle de l'utilisateur connecté
 app.get('/getrole', authMiddleware, (req, res) => {
     const userId = req.user.id_utilisateur;
 
+    // Requête qui récupère le rôle via la table AVOIR_ROLE
     const query = `
         SELECT r.id_role, r.nom_role, r.description 
         FROM role r
@@ -211,7 +240,9 @@ app.get('/getrole', authMiddleware, (req, res) => {
     });
 });
 
+// Route pour récupérer les 200 derniers logs (réservée aux admins)
 app.get('/logs', authMiddleware, (req, res) => {
+    // On vérifie que l'utilisateur est admin
     if (req.user.id_role !== 7) {
         return res.status(403).json({ 
             success: false, 
@@ -219,6 +250,7 @@ app.get('/logs', authMiddleware, (req, res) => {
         });
     }
 
+    // Requête qui récupère les logs avec le nom de l'utilisateur qui a fait l'action
     const query = `
         SELECT 
             l.id_log,
@@ -246,6 +278,7 @@ app.get('/logs', authMiddleware, (req, res) => {
     });
 });
 
+// Route qui gère les questions du chatbot
 app.post('/chat', authMiddleware, (req, res) => {
     const { question } = req.body;
     const ipAdresse = req.ip || req.connection.remoteAddress;
@@ -256,17 +289,20 @@ app.post('/chat', authMiddleware, (req, res) => {
         return res.status(400).json({ success: false, message: 'Question vide' });
     }
 
+    // On ouvre une connexion WebSocket vers le serveur Python (RAG)
     const ws = new WebSocket('ws://localhost:8765');
 
+    // Quand la connexion est ouverte, on envoie la question
     ws.on('open', () => {
         ws.send(JSON.stringify({ question }));
     });
 
+    // Quand on reçoit la réponse de l'IA
     ws.on('message', (message) => {
         const data = JSON.parse(message.toString());
         ws.close();
 
-        // Logger la question dans la table LOG + GENERER_LOG
+        // On enregistre un log de la question (raccourcie à 100 caractères)
         const questionCourte = question.length > 100 ? question.substring(0, 100) + '...' : question;
         const logActionText = `Question posée par ${userLogin} : "${questionCourte}"`;
         const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
@@ -274,6 +310,7 @@ app.post('/chat', authMiddleware, (req, res) => {
         connection.query(insertLogQuery, [ipAdresse, logActionText], (logErr, logResult) => {
             if (!logErr) {
                 const newLogId = logResult.insertId;
+                // Liaison du log avec l'utilisateur qui a posé la question
                 const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
                 connection.query(insertGenLogQuery, [userId, newLogId]);
             } else {
@@ -281,7 +318,7 @@ app.post('/chat', authMiddleware, (req, res) => {
             }
         });
 
-        // Sauvegarder la question complète dans la table QUESTION + POSER
+        // On sauvegarde aussi la question complète dans la table question + POSER pour historique
         const insertQuestionQuery = 'INSERT INTO question (contenu, date_question) VALUES (?, NOW())';
         connection.query(insertQuestionQuery, [question], (qErr, qResult) => {
             if (!qErr) {
@@ -293,25 +330,31 @@ app.post('/chat', authMiddleware, (req, res) => {
             }
         });
 
+        // On renvoie la réponse de l'IA au front
         res.json({ success: true, reponse: data.reponse });
     });
 
+    // Gestion d'erreur si le serveur Python ne répond pas
     ws.on('error', (err) => {
         console.error('Erreur WebSocket :', err);
         res.status(500).json({ success: false, message: 'Erreur RAG' });
     });
 });
 
+// On sert les fichiers statiques (HTML, CSS, JS, images) depuis le dossier public
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Page chatbot
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'chatbot.html'));
 });
 
+// Page admin
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Lancement du serveur sur le port 3000
 app.listen(3000, '172.29.18.171', () => {
     console.log(`Disponible sur http://172.29.18.171:${3000}`);
 });
