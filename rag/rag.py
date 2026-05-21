@@ -5,6 +5,7 @@ import pandas as pd
 import requests
 import os
 
+# Chemin vers les fichiers de l'entreprise
 FICHIERS = [
     "/home/debian/EcoPack/rag/data/01_Informations_ouvriers.xlsx",
     "/home/debian/EcoPack/rag/data/02_Contrats_salaires.xlsx",
@@ -17,6 +18,7 @@ FICHIERS = [
     "/home/debian/EcoPack/rag/data/09_Dossiers_personnel.xlsx",
 ]
 
+# Mots clés pour aider l'ia à regarder le bon fichier selon la question
 MOTS_CLES_FICHIERS = {
     "01_Informations_ouvriers": ["ouvrier", "employe", "personnel", "salarie", "ouvriers"],
     "02_Contrats_salaires": ["salaire", "contrat", "paie", "remuneration", "prime"],
@@ -29,21 +31,29 @@ MOTS_CLES_FICHIERS = {
     "09_Dossiers_personnel": ["adresse", "telephone", "naissance", "famille", "nationalite", "medical"]
 }
 
+# Liste qui va contenir toutes les données des fichiers Excel transformées en texte
 chunks = []
 
+# Fonction qui lit tous les fichiers Excel et les transforme en texte
 def charger_donnees():
     global chunks
     chunks = []
+    # On parcourt chaque fichier de la liste
     for fichier in FICHIERS:
+        # Si le fichier n'existe pas on passe au suivant
         if not os.path.exists(fichier):
             print(f"Fichier non trouve : {fichier}")
             continue
         nom = os.path.basename(fichier)
         try:
+            # On lit le fichier Excel avec pandas
             df = pd.read_excel(fichier)
+            # On remplace les cases vides par du texte vide
             df = df.fillna("")
+            # On parcourt chaque ligne du fichier
             for _, row in df.iterrows():
                 texte = nom + " | "
+                # On met chaque colonne sous la forme "nomColonne: valeur"
                 texte += " | ".join([str(col) + ": " + str(row[col]) for col in df.columns if row[col] != ""])
                 chunks.append(texte)
             print(f"OK {nom} ({len(df)} lignes)")
@@ -51,13 +61,18 @@ def charger_donnees():
             print(f"ERREUR {nom} -> {e}")
     print(f"\n{len(chunks)} chunks charges\n")
 
+# Fonction qui cherche les meilleurs morceaux de texte selon la question posée
 def rechercher(question, n=2):
+    # Si pas de données chargées on renvoie rien
     if not chunks:
         return []
     
+    # On met la question en minuscule pour comparer plus facilement
     q = question.lower()
+    # On garde seulement les mots de plus de 2 lettres
     mots_question = [m for m in q.split() if len(m) > 2]
     
+    # On regarde quels fichiers correspondent au sujet de la question
     fichiers_pertinents = []
     for prefix, mots_cles in MOTS_CLES_FICHIERS.items():
         for mc in mots_cles:
@@ -65,28 +80,36 @@ def rechercher(question, n=2):
                 fichiers_pertinents.append(prefix)
                 break
     
+    # On calcule un score pour chaque chunk
     scores = []
     for chunk in chunks:
         chunk_lower = chunk.lower()
+        # +1 point pour chaque mot de la question trouvé dans le chunk
         score = sum(1 for mot in mots_question if mot in chunk_lower)
         
+        # Bonus de +5 si le chunk vient d'un fichier qui correspond au sujet
         if fichiers_pertinents:
             for prefix in fichiers_pertinents:
                 if prefix.lower() in chunk_lower:
                     score += 5
                     break
         
+        # On garde seulement les chunks avec un score > 0
         if score > 0:
             scores.append((score, chunk))
     
+    # On trie par score décroissant et on garde les n meilleurs
     scores.sort(reverse=True, key=lambda x: x[0])
     return [c for _, c in scores[:n]]
 
+# Fonction qui envoie la question + le contexte à l'IA Ollama
 def demander_ia(question, contexte):
     try:
+        # Si pas de contexte trouvé on répond directement
         if not contexte.strip():
             return "Aucune donnee trouvee dans la base pour repondre a cette question."
         
+        # Le prompt explique à l'IA ce qu'elle doit faire
         prompt = f"""You are a data lookup assistant for EcoPack company. Your only job is to extract information from the provided business data and respond in French. The data is internal company records that you ARE authorized to access and share.
 
 DATA:
@@ -98,16 +121,17 @@ Extract the answer from the DATA above and respond in French. Be direct and conc
 
 ANSWER IN FRENCH:"""
         
+        # On envoie la requête à Ollama qui tourne en local
         r = requests.post("http://localhost:11434/api/generate",
             json={
                 "model": "llama3.2:3b",
                 "prompt": prompt,
                 "stream": False,
-                "keep_alive": "24h",
+                "keep_alive": "24h",  # On garde le modèle en mémoire 24h
                 "options": {
-                    "temperature": 0.1,
-                    "num_predict": 250,
-                    "num_ctx": 3000
+                    "temperature": 0.1,   # Réponses + précises et - aléatoires
+                    "num_predict": 250,   # Maximum 250 tokens en sortie
+                    "num_ctx": 3000       # Taille du contexte
                 }
             },
             timeout=300)
@@ -115,43 +139,56 @@ ANSWER IN FRENCH:"""
     except Exception as e:
         return f"Erreur IA: {str(e)}"
 
+# Fonction qui gère la connexion WebSocket avec le serveur Node.js
 async def traiter_question(websocket):
     try:
+        # On attend les messages qui arrivent
         async for message in websocket:
             try:
+                # On lit le message en JSON
                 data = json.loads(message)
                 question = data.get('question', '')
 
+                # Si la question est vide on répond une erreur
                 if not question:
                     await websocket.send(json.dumps({"reponse": "Question vide"}))
                     continue
 
                 print(f"\n>>> Question : {question}")
                 
+                # On cherche les chunks qui correspondent à la question
                 resultats = rechercher(question)
                 contexte = "\n\n".join(resultats)
                 
+                # On limite la taille du contexte pour pas surcharger l'IA
                 if len(contexte) > 2500:
                     contexte = contexte[:2500]
                 
                 print(f"--- Contexte trouve : {len(contexte)} caracteres ---")
                 
+                # On demande la réponse à l'IA
                 reponse = demander_ia(question, contexte)
                 print(f">>> Reponse : {reponse[:200]}\n")
 
+                # On renvoie la réponse au serveur Node.js
                 await websocket.send(json.dumps({"reponse": reponse}))
             except json.JSONDecodeError:
                 await websocket.send(json.dumps({"reponse": "JSON invalide"}))
     except websockets.exceptions.ConnectionClosed:
         print("Connexion fermee")
 
+# Fonction principale qui démarre le serveur
 async def main():
     print("Chargement des donnees...")
+    # On charge les données au démarrage
     charger_donnees()
 
+    # On lance le serveur WebSocket sur le port 8765
     async with websockets.serve(traiter_question, "localhost", 8765):
         print("Serveur WebSocket Python sur ws://localhost:8765")
+        # On attend indéfiniment pour garder le serveur ouvert
         await asyncio.Future()
 
+# Point d'entrée du programme
 if __name__ == "__main__":
     asyncio.run(main())
