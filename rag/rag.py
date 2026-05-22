@@ -23,7 +23,7 @@ MOTS_CLES_FICHIERS = {
     "01_Informations_ouvriers": ["ouvrier", "employe", "personnel", "salarie", "ouvriers"],
     "02_Contrats_salaires": ["salaire", "contrat", "paie", "remuneration", "prime"],
     "03_Notices_techniques_machines": ["machine", "machines", "equipement", "fabricant", "modele", "puissance"],
-    "04_Historique_maintenance": ["maintenance", "panne", "reparation", "intervention", "technicien"],
+    "04_Historique_maintenance": ["maintenance", "panne", "reparation", "intervention", "technicien","machine"],
     "05_Stocks_expeditions": ["stock", "stocks", "article", "produit", "boite", "carton", "expedition"],
     "06_Rapports_qualite_NC": ["qualite", "controle", "conformite", "defaut", "lot"],
     "07_Comptes_utilisateurs_logs": ["compte", "login", "utilisateur", "connexion", "acces", "mdp"],
