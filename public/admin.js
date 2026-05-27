@@ -66,6 +66,106 @@ function logout() {
     location.reload();
 }
 
+// Charge et affiche la liste des utilisateurs depuis le serveur
+async function chargerUtilisateurs() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/admin/utilisateurs', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        const tbody = document.getElementById('usersTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!response.ok || !data.success) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;">Erreur lors du chargement.</td></tr>';
+            return;
+        }
+
+        if (data.utilisateurs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;">Aucun utilisateur.</td></tr>';
+            return;
+        }
+
+        data.utilisateurs.forEach(u => {
+            const tr = document.createElement('tr');
+            const statutClass = u.actif ? 'active' : 'inactive';
+            const statutLabel = u.actif ? 'Actif' : 'Inactif';
+            const toggleLabel = u.actif ? 'Désactiver' : 'Activer';
+            const toggleStyle = u.actif
+                ? 'background:#f59e0b;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px;'
+                : 'background:#1f7a4d;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px;';
+
+            tr.innerHTML = `
+                <td>${u.nom} ${u.prenom}</td>
+                <td>${u.login}</td>
+                <td>${u.nom_role || '—'}</td>
+                <td><span class="badge ${statutClass}">${statutLabel}</span></td>
+                <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button style="${toggleStyle}" onclick="toggleStatut(${u.id_utilisateur}, ${u.actif ? 0 : 1}, '${u.login}')">${toggleLabel}</button>
+                    <button style="background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="supprimerUtilisateur(${u.id_utilisateur}, '${u.login}')">Supprimer</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Erreur chargement utilisateurs :', error);
+    }
+}
+
+// Active ou désactive un compte utilisateur
+async function toggleStatut(id, nouvelActif, login) {
+    const action = nouvelActif ? 'activer' : 'désactiver';
+    if (!confirm(`Voulez-vous vraiment ${action} le compte de "${login}" ?`)) return;
+
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/admin/utilisateurs/${id}/statut`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ actif: nouvelActif })
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            chargerUtilisateurs();
+            chargerDerniersLogs();
+        } else {
+            alert(`Erreur : ${data.message}`);
+        }
+    } catch (error) {
+        alert('Impossible de joindre le serveur.');
+    }
+}
+
+// Supprime définitivement un compte utilisateur
+async function supprimerUtilisateur(id, login) {
+    if (!confirm(`ATTENTION : voulez-vous vraiment supprimer définitivement le compte de "${login}" ?\nCette action est irréversible.`)) return;
+
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/admin/utilisateurs/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            chargerUtilisateurs();
+            chargerDerniersLogs();
+        } else {
+            alert(`Erreur : ${data.message}`);
+        }
+    } catch (error) {
+        alert('Impossible de joindre le serveur.');
+    }
+}
+
 // Fonction qui récupère les logs depuis le serveur
 async function chargerDerniersLogs() {
     try {
@@ -207,9 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 accessDenied.style.display = 'none';
                 connectedUserName.textContent = donneesUtilisateur.login;
                 connectedUserRole.textContent = donneesUtilisateur.role || 'Admin';
-                // On charge les logs au démarrage
+                // On charge les données au démarrage
+                chargerUtilisateurs();
                 chargerDerniersLogs();
-                // Et on les rafraîchit automatiquement toutes les 10 secondes
                 setInterval(chargerDerniersLogs, 10000);
             } else {
                 // Pas admin : on affiche le message "Accès refusé"
@@ -264,8 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         appContainer.style.display = 'flex';
                         accessDenied.style.display = 'none';
                         loginForm.reset();
+                        chargerUtilisateurs();
                         chargerDerniersLogs();
-                        // Rafraîchir les logs toutes les 10 secondes
                         setInterval(chargerDerniersLogs, 10000);
                     } else {
                         // Pas admin : on affiche le message "Accès refusé"
@@ -324,7 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert(`Compte créé avec succès !\n\nIdentifiant unique : ${data.login}\nMot de passe : ${password}`);
                     registerForm.reset();
                     document.getElementById('generatedLogin').value = '';
-                    // On rafraîchit les logs pour voir la création apparaître
+                    // On rafraîchit la liste des utilisateurs et les logs
+                    chargerUtilisateurs();
                     chargerDerniersLogs();
                 } else {
                     alert(`Erreur : ${data.message}`);

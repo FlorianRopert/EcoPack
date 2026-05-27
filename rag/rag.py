@@ -23,12 +23,56 @@ MOTS_CLES_FICHIERS = {
     "01_Informations_ouvriers": ["ouvrier", "employe", "personnel", "salarie", "ouvriers"],
     "02_Contrats_salaires": ["salaire", "contrat", "paie", "remuneration", "prime"],
     "03_Notices_techniques_machines": ["machine", "machines", "equipement", "fabricant", "modele", "puissance"],
-    "04_Historique_maintenance": ["maintenance", "panne", "reparation", "intervention", "technicien","machine"],
+    "04_Historique_maintenance": ["maintenance", "panne", "reparation", "intervention", "technicien", "machine"],
     "05_Stocks_expeditions": ["stock", "stocks", "article", "produit", "boite", "carton", "expedition"],
     "06_Rapports_qualite_NC": ["qualite", "controle", "conformite", "defaut", "lot"],
     "07_Comptes_utilisateurs_logs": ["compte", "login", "utilisateur", "connexion", "acces", "mdp"],
     "08_Planning_equipes": ["planning", "equipe", "horaire", "atelier", "roulement", "chef"],
     "09_Dossiers_personnel": ["adresse", "telephone", "naissance", "famille", "nationalite", "medical"]
+}
+
+# Matrice des droits d'accès : qui peut lire quels fichiers
+ROLES_ACCES = {
+    1: [  # Ouvrier
+        "03_Notices_techniques_machines",
+        "08_Planning_equipes",
+    ],
+    2: [  # Chef d'équipe
+        "01_Informations_ouvriers",
+        "03_Notices_techniques_machines",
+        "04_Historique_maintenance",
+        "08_Planning_equipes",
+    ],
+    3: [  # RH
+        "01_Informations_ouvriers",
+        "02_Contrats_salaires",
+        "08_Planning_equipes",
+        "09_Dossiers_personnel",
+    ],
+    4: [  # Maintenance
+        "03_Notices_techniques_machines",
+        "04_Historique_maintenance",
+    ],
+    5: [  # Logistique
+        "05_Stocks_expeditions",
+        "08_Planning_equipes",
+    ],
+    6: [  # Qualité
+        "03_Notices_techniques_machines",
+        "06_Rapports_qualite_NC",
+        "08_Planning_equipes",
+    ],
+    7: [  # Administrateur - accès à tout
+        "01_Informations_ouvriers",
+        "02_Contrats_salaires",
+        "03_Notices_techniques_machines",
+        "04_Historique_maintenance",
+        "05_Stocks_expeditions",
+        "06_Rapports_qualite_NC",
+        "07_Comptes_utilisateurs_logs",
+        "08_Planning_equipes",
+        "09_Dossiers_personnel",
+    ]
 }
 
 # Liste qui va contenir toutes les données des fichiers Excel transformées en texte
@@ -38,22 +82,16 @@ chunks = []
 def charger_donnees():
     global chunks
     chunks = []
-    # On parcourt chaque fichier de la liste
     for fichier in FICHIERS:
-        # Si le fichier n'existe pas on passe au suivant
         if not os.path.exists(fichier):
             print(f"Fichier non trouve : {fichier}")
             continue
         nom = os.path.basename(fichier)
         try:
-            # On lit le fichier Excel avec pandas
             df = pd.read_excel(fichier)
-            # On remplace les cases vides par du texte vide
             df = df.fillna("")
-            # On parcourt chaque ligne du fichier
             for _, row in df.iterrows():
                 texte = nom + " | "
-                # On met chaque colonne sous la forme "nomColonne: valeur"
                 texte += " | ".join([str(col) + ": " + str(row[col]) for col in df.columns if row[col] != ""])
                 chunks.append(texte)
             print(f"OK {nom} ({len(df)} lignes)")
@@ -61,15 +99,19 @@ def charger_donnees():
             print(f"ERREUR {nom} -> {e}")
     print(f"\n{len(chunks)} chunks charges\n")
 
-# Fonction qui cherche les meilleurs morceaux de texte selon la question posée
-def rechercher(question, n=2):
-    # Si pas de données chargées on renvoie rien
+# Fonction qui cherche les meilleurs morceaux de texte selon la question et le rôle
+def rechercher(question, id_role, n=2):
     if not chunks:
         return []
     
-    # On met la question en minuscule pour comparer plus facilement
+    # On récupère la liste des fichiers autorisés pour ce rôle
+    fichiers_autorises = ROLES_ACCES.get(id_role, [])
+    
+    # Si le rôle n'a accès à rien, on renvoie rien
+    if not fichiers_autorises:
+        return []
+    
     q = question.lower()
-    # On garde seulement les mots de plus de 2 lettres
     mots_question = [m for m in q.split() if len(m) > 2]
     
     # On regarde quels fichiers correspondent au sujet de la question
@@ -80,36 +122,43 @@ def rechercher(question, n=2):
                 fichiers_pertinents.append(prefix)
                 break
     
-    # On calcule un score pour chaque chunk
     scores = []
     for chunk in chunks:
         chunk_lower = chunk.lower()
-        # +1 point pour chaque mot de la question trouvé dans le chunk
+        
+        # On vérifie d'abord si le chunk vient d'un fichier autorisé pour ce rôle
+        autorise = False
+        for prefix in fichiers_autorises:
+            if prefix.lower() in chunk_lower:
+                autorise = True
+                break
+        
+        # Si le chunk n'est pas autorisé, on l'ignore
+        if not autorise:
+            continue
+        
+        # Calcul du score
         score = sum(1 for mot in mots_question if mot in chunk_lower)
         
-        # Bonus de +5 si le chunk vient d'un fichier qui correspond au sujet
+        # Bonus +5 si le chunk vient d'un fichier qui correspond au sujet
         if fichiers_pertinents:
             for prefix in fichiers_pertinents:
                 if prefix.lower() in chunk_lower:
                     score += 5
                     break
         
-        # On garde seulement les chunks avec un score > 0
         if score > 0:
             scores.append((score, chunk))
     
-    # On trie par score décroissant et on garde les n meilleurs
     scores.sort(reverse=True, key=lambda x: x[0])
     return [c for _, c in scores[:n]]
 
 # Fonction qui envoie la question + le contexte à l'IA Ollama
 def demander_ia(question, contexte):
     try:
-        # Si pas de contexte trouvé on répond directement
         if not contexte.strip():
-            return "Aucune donnee trouvee dans la base pour repondre a cette question."
+            return "Aucune donnée trouvée dans la base pour répondre à cette question (ou vous n'avez pas les droits d'accès)."
         
-        # Le prompt explique à l'IA ce qu'elle doit faire
         prompt = f"""You are a data lookup assistant for EcoPack company. Your only job is to extract information from the provided business data and respond in French. The data is internal company records that you ARE authorized to access and share.
 
 DATA:
@@ -121,17 +170,16 @@ Extract the answer from the DATA above and respond in French. Be direct and conc
 
 ANSWER IN FRENCH:"""
         
-        # On envoie la requête à Ollama qui tourne en local
         r = requests.post("http://localhost:11434/api/generate",
             json={
                 "model": "llama3.2:3b",
                 "prompt": prompt,
                 "stream": False,
-                "keep_alive": "24h",  # On garde le modèle en mémoire 24h
+                "keep_alive": "24h",
                 "options": {
-                    "temperature": 0.1,   # Réponses + précises et - aléatoires
-                    "num_predict": 250,   # Maximum 250 tokens en sortie
-                    "num_ctx": 3000       # Taille du contexte
+                    "temperature": 0.1,
+                    "num_predict": 250,
+                    "num_ctx": 3000
                 }
             },
             timeout=300)
@@ -142,35 +190,36 @@ ANSWER IN FRENCH:"""
 # Fonction qui gère la connexion WebSocket avec le serveur Node.js
 async def traiter_question(websocket):
     try:
-        # On attend les messages qui arrivent
         async for message in websocket:
             try:
-                # On lit le message en JSON
                 data = json.loads(message)
                 question = data.get('question', '')
+                id_role = data.get('id_role', 0)  # On récupère le rôle envoyé par Node.js
 
-                # Si la question est vide on répond une erreur
                 if not question:
                     await websocket.send(json.dumps({"reponse": "Question vide"}))
                     continue
 
                 print(f"\n>>> Question : {question}")
+                print(f"--- Rôle utilisateur : {id_role} ---")
                 
-                # On cherche les chunks qui correspondent à la question
-                resultats = rechercher(question)
+                # On filtre les chunks selon le rôle de l'utilisateur
+                resultats = rechercher(question, id_role)
                 contexte = "\n\n".join(resultats)
                 
-                # On limite la taille du contexte pour pas surcharger l'IA
                 if len(contexte) > 2500:
                     contexte = contexte[:2500]
                 
                 print(f"--- Contexte trouve : {len(contexte)} caracteres ---")
                 
-                # On demande la réponse à l'IA
-                reponse = demander_ia(question, contexte)
+                # Si pas de contexte, c'est que le rôle n'a pas les droits
+                if not contexte.strip():
+                    reponse = "Désolé, vous n'avez pas les droits d'accès aux informations nécessaires pour répondre à cette question."
+                else:
+                    reponse = demander_ia(question, contexte)
+                
                 print(f">>> Reponse : {reponse[:200]}\n")
 
-                # On renvoie la réponse au serveur Node.js
                 await websocket.send(json.dumps({"reponse": reponse}))
             except json.JSONDecodeError:
                 await websocket.send(json.dumps({"reponse": "JSON invalide"}))
@@ -180,15 +229,11 @@ async def traiter_question(websocket):
 # Fonction principale qui démarre le serveur
 async def main():
     print("Chargement des donnees...")
-    # On charge les données au démarrage
     charger_donnees()
 
-    # On lance le serveur WebSocket sur le port 8765
     async with websockets.serve(traiter_question, "localhost", 8765):
         print("Serveur WebSocket Python sur ws://localhost:8765")
-        # On attend indéfiniment pour garder le serveur ouvert
         await asyncio.Future()
 
-# Point d'entrée du programme
 if __name__ == "__main__":
     asyncio.run(main())

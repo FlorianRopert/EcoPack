@@ -284,33 +284,34 @@ app.post('/chat', authMiddleware, (req, res) => {
     const ipAdresse = req.ip || req.connection.remoteAddress;
     const userId = req.user.id_utilisateur;
     const userLogin = req.user.login;
+    const userRole = req.user.id_role; // ← On récupère le rôle depuis le token
 
     if (!question) {
         return res.status(400).json({ success: false, message: 'Question vide' });
     }
-
+    
     // On ouvre une connexion WebSocket vers le serveur Python (RAG)
     const ws = new WebSocket('ws://localhost:8765');
 
-    // Quand la connexion est ouverte, on envoie la question
     ws.on('open', () => {
-        ws.send(JSON.stringify({ question }));
+        // Quand la connexion est ouverte, on envoie la question
+        ws.send(JSON.stringify({ question, id_role: userRole }));
     });
-
+    
     // Quand on reçoit la réponse de l'IA
     ws.on('message', (message) => {
         const data = JSON.parse(message.toString());
         ws.close();
 
-        // On enregistre un log de la question (raccourcie à 100 caractères)
+        // Log de la question
         const questionCourte = question.length > 100 ? question.substring(0, 100) + '...' : question;
         const logActionText = `Question posée par ${userLogin} : "${questionCourte}"`;
         const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
         
+        // On enregistre un log de la question (raccourcie à 100 caractères)
         connection.query(insertLogQuery, [ipAdresse, logActionText], (logErr, logResult) => {
             if (!logErr) {
                 const newLogId = logResult.insertId;
-                // Liaison du log avec l'utilisateur qui a posé la question
                 const insertGenLogQuery = 'INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)';
                 connection.query(insertGenLogQuery, [userId, newLogId]);
             } else {
@@ -323,21 +324,122 @@ app.post('/chat', authMiddleware, (req, res) => {
         connection.query(insertQuestionQuery, [question], (qErr, qResult) => {
             if (!qErr) {
                 const newQuestionId = qResult.insertId;
+                // Liaison du log avec l'utilisateur qui a posé la question
                 const insertPoserQuery = 'INSERT INTO POSER (id_utilisateur, id_question) VALUES (?, ?)';
                 connection.query(insertPoserQuery, [userId, newQuestionId]);
-            } else {
-                console.error('Erreur sauvegarde question :', qErr);
             }
         });
 
-        // On renvoie la réponse de l'IA au front
         res.json({ success: true, reponse: data.reponse });
     });
 
     // Gestion d'erreur si le serveur Python ne répond pas
     ws.on('error', (err) => {
         console.error('Erreur WebSocket :', err);
-        res.status(500).json({ success: false, message: 'Erreur RAG' });
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, message: 'Erreur RAG' });
+        }
+    });
+});
+
+
+
+// Route pour lister tous les utilisateurs avec leur rôle (admin only)
+app.get('/admin/utilisateurs', authMiddleware, (req, res) => {
+    if (req.user.id_role !== 7) {
+        return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    const query = `
+        SELECT u.id_utilisateur, u.nom, u.prenom, u.email, u.login, u.actif,
+               r.id_role, r.nom_role
+        FROM utilisateur u
+        LEFT JOIN AVOIR_ROLE ar ON u.id_utilisateur = ar.id_utilisateur
+        LEFT JOIN role r ON ar.id_role = r.id_role
+        ORDER BY u.nom, u.prenom
+    `;
+
+    connection.query(query, (err, results) => {
+        if (err) {
+            console.error('Erreur SQL liste utilisateurs :', err);
+            return res.status(500).json({ success: false, message: 'Erreur serveur' });
+        }
+        res.json({ success: true, utilisateurs: results });
+    });
+});
+
+// Route pour activer ou désactiver un compte utilisateur (admin only)
+app.patch('/admin/utilisateurs/:id/statut', authMiddleware, (req, res) => {
+    if (req.user.id_role !== 7) {
+        return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    const userId = parseInt(req.params.id);
+    const ipAdresse = req.ip || req.connection.remoteAddress;
+
+    if (userId === req.user.id_utilisateur) {
+        return res.status(400).json({ success: false, message: 'Vous ne pouvez pas modifier votre propre compte.' });
+    }
+
+    const { actif } = req.body;
+    if (actif === undefined) {
+        return res.status(400).json({ success: false, message: 'Statut manquant.' });
+    }
+
+    connection.query('UPDATE utilisateur SET actif = ? WHERE id_utilisateur = ?', [actif ? 1 : 0, userId], (err, result) => {
+        if (err) {
+            console.error('Erreur SQL statut utilisateur :', err);
+            return res.status(500).json({ success: false, message: 'Erreur serveur' });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Utilisateur introuvable.' });
+        }
+
+        const logText = `${actif ? 'Activation' : 'Désactivation'} du compte ID:${userId} par ${req.user.login}`;
+        connection.query('INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())', [ipAdresse, logText], (logErr, logResult) => {
+            if (!logErr) {
+                connection.query('INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)', [req.user.id_utilisateur, logResult.insertId]);
+            }
+        });
+
+        res.json({ success: true, message: `Compte ${actif ? 'activé' : 'désactivé'} avec succès.` });
+    });
+});
+
+// Route pour supprimer définitivement un compte utilisateur (admin only)
+app.delete('/admin/utilisateurs/:id', authMiddleware, (req, res) => {
+    if (req.user.id_role !== 7) {
+        return res.status(403).json({ success: false, message: 'Accès refusé.' });
+    }
+
+    const userId = parseInt(req.params.id);
+    const ipAdresse = req.ip || req.connection.remoteAddress;
+
+    if (userId === req.user.id_utilisateur) {
+        return res.status(400).json({ success: false, message: 'Vous ne pouvez pas supprimer votre propre compte.' });
+    }
+
+    connection.query('SELECT login FROM utilisateur WHERE id_utilisateur = ?', [userId], (err, results) => {
+        if (err) return res.status(500).json({ success: false, message: 'Erreur serveur' });
+        if (results.length === 0) return res.status(404).json({ success: false, message: 'Utilisateur introuvable.' });
+
+        const userLogin = results[0].login;
+
+        connection.query('DELETE FROM utilisateur WHERE id_utilisateur = ?', [userId], (delErr) => {
+            if (delErr) {
+                console.error('Erreur SQL suppression utilisateur :', delErr);
+                return res.status(500).json({ success: false, message: 'Erreur lors de la suppression.' });
+            }
+
+            const logText = `Suppression du compte utilisateur : ${userLogin} par ${req.user.login}`;
+            connection.query('INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())', [ipAdresse, logText], (logErr, logResult) => {
+                if (!logErr) {
+                    connection.query('INSERT INTO GENERER_LOG (id_utilisateur, id_log) VALUES (?, ?)', [req.user.id_utilisateur, logResult.insertId]);
+                }
+            });
+
+            res.json({ success: true, message: 'Utilisateur supprimé avec succès.' });
+        });
     });
 });
 
