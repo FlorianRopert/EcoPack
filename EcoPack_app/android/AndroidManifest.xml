@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ecopack.chatbotapp"
+    android:installLocation="auto"
+    android:versionCode="1"
+    android:versionName="0.1">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <application
+        android:name="org.qtproject.qt.android.bindings.QtApplication"
+        android:label="Ecopack"
+        android:allowBackup="true"
+        android:usesCleartextTraffic="true">
+        <activity
+            android:name="org.qtproject.qt.android.bindings.QtActivity"
+            android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
+            android:label="Ecopack"
+            android:launchMode="singleTop"
+            android:exported="true"
+            android:screenOrientation="unspecified">
+            <meta-data android:name="android.app.lib_name" android:value="appEcoPack_app" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
