@@ -19,7 +19,7 @@ qt_add_executable(appEcoPack_app
     src/ApiClient.cpp
 )
 
-# Module QML (toutes les pages sont dans qml/)
+# Module QML (toutes les pages sont dans qml/ + image logo)
 qt_add_qml_module(appEcoPack_app
     URI EcoPack_app
     VERSION 1.0
@@ -30,6 +30,9 @@ qt_add_qml_module(appEcoPack_app
         qml/ChatPage.qml
         qml/MessageBubble.qml
         qml/AdminPage.qml
+        qml/SideMenu.qml
+    RESOURCES
+        qml/img/logo.png
 )
 
 # Include path pour les .h (pour pouvoir faire #include "AuthManager.h")

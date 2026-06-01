@@ -2,25 +2,25 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// Page d'administration : 2 onglets (Utilisateurs, Logs).
-// Accessible uniquement aux admins (id_role = 7).
+// Page d'administration calee sur le style du client web :
+// - fond #f8faf9, en-tete blanc avec drawer (sidebar verte)
+// - onglets Utilisateurs / Logs
+// - cartes blanches arrondies (style .admin-card)
+// - badges actif/inactif aux couleurs du web
 Page {
     id: root
     signal backRequested()
 
-    background: Rectangle { color: "white" }
+    background: Rectangle { color: "#f8faf9" }
 
-    // Modeles remplis par les signaux de ApiClient
     ListModel { id: usersModel }
     ListModel { id: logsModel }
 
-    // Au montage on charge les donnees des deux onglets
     Component.onCompleted: {
         api.fetchUsers()
         api.fetchLogs()
     }
 
-    // Reactions aux signaux du backend
     Connections {
         target: api
         function onUsersReceived(users) {
@@ -54,156 +54,329 @@ Page {
         }
     }
 
+    // Drawer lateral (sidebar verte du web)
+    SideMenu {
+        id: sideMenu
+        currentPage: "admin"
+        onChatRequested: root.backRequested()
+        onLogoutRequested: {
+            auth.logout()
+            // Le drawer ferme et on remonte au login via le signal back
+            root.backRequested()
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Header
+        // En-tete blanc (style .chat-header)
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 56
-            color: "#2CDE85"
+            Layout.preferredHeight: 78
+            color: "white"
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: "#dddddd"
+            }
 
             RowLayout {
                 anchors.fill: parent
-                anchors.margins: 8
-                spacing: 8
+                anchors.leftMargin: 8
+                anchors.rightMargin: 12
+                anchors.topMargin: 10
+                anchors.bottomMargin: 10
+                spacing: 6
 
+                // Bouton hamburger
                 Button {
-                    text: "<"
-                    onClicked: root.backRequested()
-                    background: Rectangle { color: "#00414A"; radius: 6 }
+                    id: menuBtn
+                    text: "☰"
+                    Layout.preferredWidth: 44
+                    Layout.preferredHeight: 44
+                    background: Rectangle {
+                        radius: 12
+                        color: menuBtn.pressed ? "#f3f4f6" : "transparent"
+                    }
                     contentItem: Text {
-                        text: parent.text
-                        color: "white"
+                        text: menuBtn.text
+                        color: "#1f2937"
+                        font.pixelSize: 22
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
+                    onClicked: sideMenu.open()
                 }
-                Text {
+
+                ColumnLayout {
                     Layout.fillWidth: true
-                    text: "Administration"
-                    color: "white"
-                    font.pixelSize: 18
-                    font.bold: true
+                    spacing: 2
+                    Text {
+                        text: "Administration"
+                        color: "#1f2937"
+                        font.pixelSize: 18
+                        font.bold: true
+                    }
+                    Text {
+                        text: "Gérer les utilisateurs et consulter les logs"
+                        color: "#666666"
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                    }
+                }
+
+                // Retour vers chat
+                Button {
+                    id: backBtn
+                    text: "Retour"
+                    onClicked: root.backRequested()
+                    background: Rectangle {
+                        radius: 12
+                        color: backBtn.pressed ? "#f3f4f6" : "white"
+                        border.color: "#cccccc"
+                        border.width: 1
+                    }
+                    contentItem: Text {
+                        text: backBtn.text
+                        color: "#1f2937"
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    padding: 10
                 }
             }
         }
 
-        // TabBar : 2 onglets
+        // TabBar style vert plein sous l'onglet actif
         TabBar {
             id: bar
             Layout.fillWidth: true
-            TabButton { text: "Utilisateurs" }
-            TabButton { text: "Logs" }
+            background: Rectangle { color: "white" }
+
+            TabButton {
+                text: "Utilisateurs"
+                background: Rectangle {
+                    color: "white"
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: bar.currentIndex === 0 ? 3 : 1
+                        color: bar.currentIndex === 0 ? "#1f7a4d" : "#dddddd"
+                    }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: bar.currentIndex === 0 ? "#1f7a4d" : "#666666"
+                    font.pixelSize: 14
+                    font.bold: bar.currentIndex === 0
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+            TabButton {
+                text: "Logs"
+                background: Rectangle {
+                    color: "white"
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: bar.currentIndex === 1 ? 3 : 1
+                        color: bar.currentIndex === 1 ? "#1f7a4d" : "#dddddd"
+                    }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    color: bar.currentIndex === 1 ? "#1f7a4d" : "#666666"
+                    font.pixelSize: 14
+                    font.bold: bar.currentIndex === 1
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
         }
 
-        // StackLayout aligne sur l'onglet selectionne
+        // StackLayout aligne sur l'onglet
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             currentIndex: bar.currentIndex
 
-            // --- Onglet Utilisateurs ---
-            ListView {
-                id: usersList
-                model: usersModel
-                clip: true
-                spacing: 4
-                delegate: Rectangle {
-                    width: usersList.width
-                    height: 90
-                    color: index % 2 ? "#F9F9F9" : "white"
-                    border.color: "#DDDDDD"
+            // --- Onglet Utilisateurs : carte blanche contenant la liste ---
+            // (style .admin-card du web : fond blanc, radius 18, border #e5e7eb)
+            Item {
+                ListView {
+                    id: usersList
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    model: usersModel
+                    clip: true
+                    spacing: 10
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: 8
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Text {
-                                text: (model.nom + " " + model.prenom).trim() + "  (" + model.login + ")"
-                                font.bold: true
-                                color: "#222"
-                                elide: Text.ElideRight
-                            }
-                            Text {
-                                text: model.email
-                                color: "#555"
-                                font.pixelSize: 12
-                                elide: Text.ElideRight
-                            }
-                            Text {
-                                text: "Role : " + model.nom_role
-                                color: "#777"
-                                font.pixelSize: 12
-                            }
+                    // En-tete de section (h3 du web : "Liste des utilisateurs")
+                    header: Item {
+                        width: usersList.width
+                        height: 40
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Liste des utilisateurs"
+                            color: "#1f2937"
+                            font.pixelSize: 16
+                            font.bold: true
                         }
+                    }
 
-                        // Switch actif/inactif
-                        ColumnLayout {
-                            spacing: 2
-                            Text {
-                                text: model.actif ? "Actif" : "Inactif"
-                                color: model.actif ? "#2CDE85" : "#888"
-                                font.pixelSize: 11
-                            }
-                            Switch {
-                                checked: model.actif
-                                onToggled: api.setUserActive(model.id_utilisateur, checked)
-                            }
-                        }
+                    delegate: Rectangle {
+                        width: usersList.width
+                        height: 130
+                        radius: 18
+                        color: "white"
+                        border.color: "#e5e7eb"
+                        border.width: 1
 
-                        Button {
-                            text: "X"
-                            background: Rectangle { color: "red"; radius: 6 }
-                            contentItem: Text {
-                                text: parent.text
-                                color: "white"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 14
+                            spacing: 10
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 3
+                                Text {
+                                    text: (model.nom + " " + model.prenom).trim()
+                                    font.bold: true
+                                    font.pixelSize: 14
+                                    color: "#1f2937"
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Text {
+                                    text: "@" + model.login
+                                    color: "#1f7a4d"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                }
+                                Text {
+                                    text: model.email
+                                    color: "#6b7280"
+                                    font.pixelSize: 11
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                }
+                                Text {
+                                    text: "Rôle : " + model.nom_role
+                                    color: "#6b7280"
+                                    font.pixelSize: 11
+                                }
+
+                                // Badge actif / inactif (style .badge du web)
+                                Rectangle {
+                                    Layout.topMargin: 4
+                                    radius: 20
+                                    color: model.actif ? "#dcfce7" : "#fee2e2"
+                                    implicitWidth: badgeLabel.implicitWidth + 18
+                                    implicitHeight: badgeLabel.implicitHeight + 8
+                                    Text {
+                                        id: badgeLabel
+                                        anchors.centerIn: parent
+                                        text: model.actif ? "Actif" : "Inactif"
+                                        color: model.actif ? "#166534" : "#991b1b"
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                    }
+                                }
                             }
-                            onClicked: confirmDialog.open(model.id_utilisateur, model.login)
+
+                            ColumnLayout {
+                                spacing: 6
+                                Layout.alignment: Qt.AlignVCenter
+                                Switch {
+                                    checked: model.actif
+                                    onToggled: api.setUserActive(model.id_utilisateur, checked)
+                                }
+                                Button {
+                                    id: delBtn
+                                    text: "Supprimer"
+                                    background: Rectangle {
+                                        radius: 10
+                                        color: delBtn.pressed ? "#991b1b" : "#dc2626"
+                                    }
+                                    contentItem: Text {
+                                        text: delBtn.text
+                                        color: "white"
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    padding: 8
+                                    onClicked: confirmDialog.open(model.id_utilisateur, model.login)
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // --- Onglet Logs ---
-            ListView {
-                id: logsList
-                model: logsModel
-                clip: true
-                spacing: 2
-                delegate: Rectangle {
-                    width: logsList.width
-                    height: 60
-                    color: index % 2 ? "#F9F9F9" : "white"
-                    border.color: "#EEEEEE"
+            // --- Onglet Logs : lignes alternees dans des cartes legeres ---
+            Item {
+                ListView {
+                    id: logsList
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    model: logsModel
+                    clip: true
+                    spacing: 6
 
-                    Column {
-                        anchors.fill: parent
-                        anchors.margins: 6
-                        spacing: 2
+                    header: Item {
+                        width: logsList.width
+                        height: 40
                         Text {
-                            text: model.date_log + "  —  " + model.login
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Derniers logs"
+                            color: "#1f2937"
+                            font.pixelSize: 16
                             font.bold: true
-                            color: "#222"
-                            font.pixelSize: 12
                         }
-                        Text {
-                            text: model.action
-                            color: "#555"
-                            font.pixelSize: 12
-                            elide: Text.ElideRight
-                            width: parent.width
-                        }
-                        Text {
-                            text: "IP : " + model.ip
-                            color: "#888"
-                            font.pixelSize: 11
+                    }
+
+                    delegate: Rectangle {
+                        width: logsList.width
+                        height: 78
+                        radius: 14
+                        color: "white"
+                        border.color: "#e5e7eb"
+                        border.width: 1
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 4
+                            Text {
+                                text: model.date_log + "  —  " + model.login
+                                font.bold: true
+                                color: "#1f2937"
+                                font.pixelSize: 12
+                            }
+                            Text {
+                                text: model.action
+                                color: "#555555"
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                            Text {
+                                text: "IP : " + model.ip
+                                color: "#888888"
+                                font.pixelSize: 11
+                            }
                         }
                     }
                 }
@@ -211,7 +384,7 @@ Page {
         }
     }
 
-    // Dialog de confirmation pour la suppression
+    // Dialog de confirmation : style aligne (titre fonce, bouton rouge)
     Dialog {
         id: confirmDialog
         modal: true
@@ -228,8 +401,10 @@ Page {
             visible = true
         }
 
-        Text {
-            text: "Supprimer l'utilisateur " + confirmDialog.pendingLogin + " ?\nCette action est irreversible."
+        contentItem: Text {
+            text: "Supprimer l'utilisateur " + confirmDialog.pendingLogin + " ?\nCette action est irréversible."
+            color: "#1f2937"
+            font.pixelSize: 14
             wrapMode: Text.Wrap
         }
 

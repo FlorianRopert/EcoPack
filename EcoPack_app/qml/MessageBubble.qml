@@ -1,42 +1,57 @@
 import QtQuick
 
-// Bulle de message : positionnee a droite (vert) pour l'utilisateur,
-// a gauche (gris) pour le bot. Le delegate ListView passe les proprietes.
+// Bulle de message reproduisant le style du client web :
+// - bulle bot : fond blanc, bordure #e5e7eb, texte fonce
+// - bulle utilisateur : fond vert #1f7a4d, texte blanc
 Item {
     id: bubble
 
     property string messageText: ""
     property bool isUser: false
 
-    // Hauteur du contenu + un peu de marge
     width: parent ? parent.width : 0
-    implicitHeight: contentRect.height + 12
+    implicitHeight: contentRect.height + 16
 
     Rectangle {
         id: contentRect
-        // Largeur max 75% de la liste
-        width: Math.min(parent.width * 0.75, textItem.implicitWidth + 24)
-        // Hauteur ajustee au texte
-        height: textItem.implicitHeight + 16
-        radius: 12
+        // Largeur max ~75% comme sur le web (.bubble max-width:65% mais plus
+        // confortable sur mobile)
+        width: Math.min(parent.width * 0.78, textCol.implicitWidth + 32)
+        height: textCol.implicitHeight + 22
+        radius: 18
 
-        // Alignement gauche/droite selon l'auteur
         anchors.right: bubble.isUser ? parent.right : undefined
         anchors.left: bubble.isUser ? undefined : parent.left
-        anchors.rightMargin: 8
-        anchors.leftMargin: 8
+        anchors.rightMargin: 12
+        anchors.leftMargin: 12
         anchors.verticalCenter: parent.verticalCenter
 
-        color: bubble.isUser ? "#2CDE85" : "#E8E8E8"
+        color: bubble.isUser ? "#1f7a4d" : "#ffffff"
+        border.color: bubble.isUser ? "transparent" : "#e5e7eb"
+        border.width: bubble.isUser ? 0 : 1
 
-        Text {
-            id: textItem
-            anchors.centerIn: parent
-            width: contentRect.width - 24
-            text: bubble.messageText
-            color: bubble.isUser ? "white" : "#222"
-            wrapMode: Text.Wrap
-            font.pixelSize: 15
+        Column {
+            id: textCol
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 4
+
+            // Petite etiquette d'auteur comme sur le web (.bubble strong)
+            Text {
+                text: bubble.isUser ? "Vous" : "Assistant EcoPack"
+                color: bubble.isUser ? "#ffffff" : "#1f2937"
+                opacity: 0.8
+                font.pixelSize: 11
+                font.bold: true
+            }
+            Text {
+                width: contentRect.width - 24
+                text: bubble.messageText
+                color: bubble.isUser ? "white" : "#222222"
+                wrapMode: Text.Wrap
+                font.pixelSize: 14
+                lineHeight: 1.4
+            }
         }
     }
 }
