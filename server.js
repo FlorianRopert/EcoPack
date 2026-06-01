@@ -329,6 +329,14 @@ app.post('/chat', authMiddleware, (req, res) => {
                 // Liaison du log avec l'utilisateur qui a posé la question
                 const insertPoserQuery = 'INSERT INTO POSER (id_utilisateur, id_question) VALUES (?, ?)';
                 connection.query(insertPoserQuery, [userId, newQuestionId]);
+
+                // On enregistre la réponse complète de l'IA, liée à la question (table reponse)
+                const insertReponseQuery = 'INSERT INTO reponse (id_question, contenu, date_reponse) VALUES (?, ?, NOW())';
+                connection.query(insertReponseQuery, [newQuestionId, reponseIa], (rErr) => {
+                    if (rErr) console.error('Erreur enregistrement réponse IA :', rErr);
+                });
+            } else {
+                console.error('Erreur enregistrement question :', qErr);
             }
         });
 

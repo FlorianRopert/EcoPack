@@ -191,6 +191,30 @@ async function chargerDerniersLogs() {
     }
 }
 
+// Echappe les caractères HTML pour éviter toute injection dans le tableau
+function echapperHtml(texte) {
+    return String(texte ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Formate le texte d'un log : si une réponse IA est présente, on sépare
+// la question et la réponse sur deux lignes pour une meilleure lisibilité
+function formaterAction(action) {
+    const texte = String(action ?? '');
+    const separateur = ' | Réponse IA : ';
+    const index = texte.indexOf(separateur);
+    if (index === -1) {
+        return echapperHtml(texte);
+    }
+    const question = texte.substring(0, index);
+    const reponse = texte.substring(index + separateur.length);
+    return `${echapperHtml(question)}<br><span style="color:#1f7a4d;">Réponse IA : ${echapperHtml(reponse)}</span>`;
+}
+
 // Fonction qui affiche une page de logs dans le tableau
 function afficherPageLogs(page) {
     logCurrentPage = page;
@@ -220,7 +244,7 @@ function afficherPageLogs(page) {
         tr.innerHTML = `
             <td>${log.date_action}</td>
             <td>${utilisateurStr}</td>
-            <td>${log.action}</td>
+            <td>${formaterAction(log.action)}</td>
             <td>${log.adresse_ip}</td>
         `;
         tbody.appendChild(tr);
