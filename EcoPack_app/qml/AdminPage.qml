@@ -45,10 +45,10 @@ Page {
             for (let i = 0; i < logs.length; ++i) {
                 const l = logs[i]
                 logsModel.append({
-                    "date_log": l.date_log || "",
+                    "date_log": l.date_action || "",
                     "login": l.login || "",
                     "action": l.action || "",
-                    "ip": l.ip || ""
+                    "ip": l.adresse_ip || ""
                 })
             }
         }
