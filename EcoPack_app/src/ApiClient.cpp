@@ -10,13 +10,13 @@
 #include <QUrlQuery>
 
 // Constructeur : on garde une reference vers AuthManager pour recuperer le token
-// et on configure un timeout global de 60s sur le QNetworkAccessManager (le RAG peut etre lent).
+// et on configure un timeout global de 300s sur le QNetworkAccessManager (le RAG peut etre tres lent).
 ApiClient::ApiClient(AuthManager *auth, QObject *parent)
     : QObject(parent)
     , m_baseUrl("http://172.29.18.171:3000")
     , m_auth(auth)
 {
-    m_manager.setTransferTimeout(60000);
+    m_manager.setTransferTimeout(300000);
 }
 
 void ApiClient::setBaseUrl(const QString &url)
