@@ -303,12 +303,14 @@ app.post('/chat', authMiddleware, (req, res) => {
         const data = JSON.parse(message.toString());
         ws.close();
 
-        // Log de la question
+        // Log de la question + de la réponse de l'IA
         const questionCourte = question.length > 100 ? question.substring(0, 100) + '...' : question;
-        const logActionText = `Question posée par ${userLogin} : "${questionCourte}"`;
+        const reponseIa = (data && data.reponse) ? String(data.reponse) : '';
+        const reponseCourte = reponseIa.length > 100 ? reponseIa.substring(0, 100) + '...' : reponseIa;
+        const logActionText = `Question posée par ${userLogin} : "${questionCourte}" | Réponse IA : "${reponseCourte}"`;
         const insertLogQuery = 'INSERT INTO LOG (adresse_ip, action, date_action) VALUES (?, ?, NOW())';
-        
-        // On enregistre un log de la question (raccourcie à 100 caractères)
+
+        // On enregistre un log de la question et de la réponse (chacune raccourcie à 100 caractères)
         connection.query(insertLogQuery, [ipAdresse, logActionText], (logErr, logResult) => {
             if (!logErr) {
                 const newLogId = logResult.insertId;
